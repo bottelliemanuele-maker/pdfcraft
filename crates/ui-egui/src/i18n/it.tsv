@@ -2370,3 +2370,5 @@ animation effects	Off	Disattivati
 	Hide Others	Nascondi altre
 	Show All	Mostra tutte
 	Quit {app}	Esci da {app}
+# Preferences: the find field docked in the toolbar.
+	Find text in the toolbar	Campo di ricerca nella barra degli strumenti

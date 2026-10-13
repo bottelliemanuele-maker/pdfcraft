@@ -2604,3 +2604,5 @@ key	Space	Tarpas
 	Hide Others	Slėpti kitas
 	Show All	Rodyti visas
 	Quit {app}	Baigti „{app}“
+# Preferences: the find field docked in the toolbar.
+	Find text in the toolbar	Teksto paieška įrankių juostoje
