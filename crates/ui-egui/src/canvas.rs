@@ -290,6 +290,9 @@ pub struct DocView {
     pub id: DocId,
     pub zoom: f32,
     pub fit: Fit,
+    /// The fit a hand-zoomed view returns to when the window is resized
+    /// (`PdfCraftApp::refit_on_resize`): the last fit chosen, never `Fit::None`.
+    pub refit: Fit,
     pub layout: PageLayout,
     /// Whether the base layout scrolls continuously (independent of `layout`, as in Acrobat).
     pub continuous: bool,
@@ -581,6 +584,7 @@ impl DocView {
             id,
             zoom: defaults.zoom,
             fit: defaults.fit,
+            refit: if defaults.fit == Fit::None { Fit::Width } else { defaults.fit },
             layout: defaults.layout,
             continuous: defaults.continuous,
             rotation: 0,
@@ -1160,6 +1164,9 @@ impl DocView {
     /// Switch the zoom mode, keeping the current page in view.
     pub fn set_fit(&mut self, fit: Fit) {
         self.fit = fit;
+        if fit != Fit::None {
+            self.refit = fit;
+        }
         self.goto = Some((self.current, 0.0));
     }
 
@@ -1965,6 +1972,7 @@ pub fn shortcuts(view: &mut DocView, ctx: &egui::Context) {
         }
         if zoom_reset {
             view.fit = Fit::Page;
+            view.refit = Fit::Page;
             view.goto = Some((view.current, 0.0));
         }
     }
@@ -1973,6 +1981,7 @@ pub fn shortcuts(view: &mut DocView, ctx: &egui::Context) {
     }
     if pressed(cmd(Key::Num2)) {
         view.fit = Fit::Width;
+        view.refit = Fit::Width;
         view.goto = Some((view.current, 0.0));
     }
     if pressed(KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::SHIFT, Key::G)) {
@@ -2095,6 +2104,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     }
     // No dialog, close prompt or palette over the page: only then does page input count.
     let unobstructed = !app.modal_open() && !app.palette_open;
+    let refit_on_resize = app.refit_on_resize;
     let view = &mut app.views[index];
     if view.organize {
         organize_grid(view, info, doc.allows_assembly(), doc.dirty, unobstructed, ui, &t);
@@ -2102,8 +2112,15 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     }
 
     let avail = ui.available_rect_before_wrap();
+    // The window, or the space left beside the panels, changed size: a view zoomed by hand
+    // goes back to fitting that space when Preferences ask for it. A view not shown yet keeps
+    // its zoom, so the first layout and a zoom set from the CLI are left alone.
+    let resized = view.shown && ((avail.width() - view.viewport_w).abs() > 0.5 || (avail.height() - view.viewport_h).abs() > 0.5);
     view.viewport_w = avail.width();
     view.viewport_h = avail.height();
+    if resized && refit_on_resize && view.fit == Fit::None {
+        view.fit = view.refit;
+    }
     let old_zoom = view.zoom;
     view.fit_zoom(info);
     if view.shown && view.zoom_anchor.is_none() && view.goto.is_none() && view.goto_point.is_none() && (view.zoom - old_zoom).abs() > 1e-4 {
@@ -5326,6 +5343,22 @@ trailer << /Root 1 0 R >>
         v.current = 0;
         v.fit_zoom(&info);
         assert_eq!(v.zoom, wide, "continuous fit width holds still across page sizes");
+    }
+
+    #[test]
+    fn a_hand_zoomed_view_remembers_the_fit_to_return_to() {
+        let page =
+            |width: f32, height: f32| pdfcraft_render::PageInfo { width, height, label: String::new(), crop: [0.0, 0.0, width, height], rotation: 0 };
+        let info = DocInfo { pages: vec![page(300.0, 400.0)], ..Default::default() };
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        assert_eq!((v.fit, v.refit), (Fit::Width, Fit::Width));
+        v.set_fit(Fit::Page);
+        v.set_zoom(2.0);
+        assert_eq!((v.fit, v.refit), (Fit::None, Fit::Page), "a manual zoom leaves the fit to return to alone");
+        v.set_fit(Fit::None);
+        assert_eq!(v.refit, Fit::Page, "Custom is never a fit to return to");
+        let custom = ViewDefaults { fit: Fit::None, zoom: 1.5, ..ViewDefaults::default() };
+        assert_eq!(DocView::new(DocId(2), &info, custom).refit, Fit::Width, "a custom default zoom returns to fit width");
     }
 
     #[test]

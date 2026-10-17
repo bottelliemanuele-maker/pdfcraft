@@ -59,8 +59,9 @@
       <string>Editor</string>
       <key>LSHandlerRank</key>
       <string>Alternate</string>
-      <key>CFBundleTypeIconFile</key>
-      <string>PdfCraft</string>
+      <!-- No CFBundleTypeIconFile: with a custom document icon Finder shows that icon for every
+           PDF once PdfCraft is the default app, instead of the page thumbnail Quick Look renders.
+           Without it Finder keeps the thumbnail, as it does with Preview. -->
       <key>LSItemContentTypes</key>
       <array><string>com.adobe.pdf</string></array>
       <key>CFBundleTypeExtensions</key>

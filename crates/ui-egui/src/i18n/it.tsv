@@ -2372,3 +2372,5 @@ animation effects	Off	Disattivati
 	Quit {app}	Esci da {app}
 # Preferences: the find field docked in the toolbar.
 	Find text in the toolbar	Campo di ricerca nella barra degli strumenti
+# Preferences: a hand-zoomed view fits the window again when the window is resized.
+	Fit the page again when the window is resized	Riadatta la pagina quando la finestra cambia dimensione
