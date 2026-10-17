@@ -559,6 +559,8 @@ pub struct PdfCraftApp {
     /// The find field (⌘F) sits in the toolbar, left of the command search, instead of floating
     /// over the pages (Preferences).
     pub find_in_toolbar: bool,
+    /// A view zoomed by hand fits the window again when the window is resized (Preferences).
+    pub refit_on_resize: bool,
     /// The files open when PdfCraft last closed, read from the settings for
     /// [`PdfCraftApp::reopen_last_files`].
     pub last_session: last_session::LastSession,
@@ -918,6 +920,7 @@ impl PdfCraftApp {
             recent: Vec::new(),
             reopen_last_session: false,
             find_in_toolbar: true,
+            refit_on_resize: true,
             last_session: Default::default(),
             quit_session: None,
             reload_changed_files: true,
@@ -2151,6 +2154,7 @@ impl PdfCraftApp {
         });
         // One more key than `json!` expands within the recursion limit.
         v["find_in_toolbar"] = serde_json::Value::Bool(self.find_in_toolbar);
+        v["refit_on_resize"] = serde_json::Value::Bool(self.refit_on_resize);
         v.to_string()
     }
 
@@ -2184,6 +2188,9 @@ impl PdfCraftApp {
         }
         if let Some(on) = v["find_in_toolbar"].as_bool() {
             self.find_in_toolbar = on;
+        }
+        if let Some(on) = v["refit_on_resize"].as_bool() {
+            self.refit_on_resize = on;
         }
         self.last_session = last_session::LastSession::from_json(&v["last_session"]);
         if let Some(on) = v["system_title_bar"].as_bool() {

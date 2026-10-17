@@ -382,6 +382,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     #[cfg(not(target_arch = "wasm32"))]
     ui.add(widgets::checkbox(&mut app.reload_changed_files, tl!("Reload documents when their files change on disk")));
     ui.add(widgets::checkbox(&mut app.find_in_toolbar, tl!("Find text in the toolbar")));
+    ui.add(widgets::checkbox(&mut app.refit_on_resize, tl!("Fit the page again when the window is resized")));
     ui.horizontal(|ui| {
         ui.label(tl!("Mouse wheel scroll speed"));
         for speed in crate::scroll_speed::ScrollSpeed::ALL {
