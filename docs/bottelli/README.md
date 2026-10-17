@@ -20,7 +20,7 @@ Le modifiche 4 e 5 sono nel ramo `bottelli-refit-finder` del fork (patch `0003`)
 | `docs/bottelli/0001-i18n-…` | Il menu macOS (commit `863aaeb`, ramo `i18n-macos-app-menu`). |
 | `docs/bottelli/0002-ui-…` | Salva con nome e ricerca nella barra (commit `4cbed92`, ramo `toolbar-save-as-and-find`). |
 | `docs/bottelli/0003-…` | Anteprime PDF nel Finder e riadattamento al ridimensionamento (ramo `bottelli-refit-finder`). |
-| `build/pdfcraft-0.7.1-italiano-17590b9-macos-aarch64.dmg` | L'app con tutte le modifiche (ramo `bottelli-italiano`, merge `17590b9`), Apple Silicon, firma ad hoc (non notarizzata: va bene su questo Mac, non si distribuisce). Impronta in `SHA256SUMS`. |
+| `build/pdfcraft-0.7.1-italiano-6be3166-macos-aarch64.dmg` | L’app con tutte le modifiche 1-5 (ramo `bottelli-italiano`, commit `6be3166`; la 17590b9 è la build precedente), Apple Silicon, firma ad hoc (non notarizzata: va bene su questo Mac, non si distribuisce). Impronta in `SHA256SUMS`. |
 | `anteprime/` | Il menu e la barra com'è resi dal vivo. |
 
 ## Dove sta su GitHub
@@ -30,7 +30,7 @@ Le modifiche 4 e 5 sono nel ramo `bottelli-refit-finder` del fork (patch `0003`)
 
 ## Dove sta l'app
 
-- **`/Applications/PdfCraft Italiano.app`**, 0.7.1, commit `17590b9` in `PdfCraftBuildCommit` di `Info.plist`. È l'unica PdfCraft installata e l'app predefinita per i PDF (`duti`).
+- **`/Applications/PdfCraft Italiano.app`**, 0.7.1, commit `6be3166` in `PdfCraftBuildCommit` di `Info.plist`. È l'unica PdfCraft installata e l'app predefinita per i PDF (`duti`).
 - La 0.6.0 ufficiale è stata spostata il 13/10/2026 in `~/Desktop/claude/_da_eliminare/PdfCraft_0.6.0_ufficiale_2026-10-13.app` su richiesta di Emanuele. Se l'ArtCraft Launcher reinstalla `PdfCraft.app`, macOS sceglie per i PDF la copia con la versione più alta.
 
 Sorgente e compilazione: `~/Library/Caches/PdfCraft_italiano/pdfcraft` (mai in iCloud).
