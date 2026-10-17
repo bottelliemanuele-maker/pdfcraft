@@ -1,0 +1,766 @@
+From 4cbed92ddd5838242066e015169fd07a33133cd4 Mon Sep 17 00:00:00 2001
+From: Emanuele Bottelli <bottelliemanuele@icloud.com>
+Date: Tue, 13 Oct 2026 16:49:36 +0200
+Subject: [PATCH] ui: Save as in the toolbar, and the find field docked beside
+ the command search
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Two toolbar changes from daily use:
+
+- Save as (file.save_as) gets a button beside Save, worded from the
+  command's own label so it needs no new string.
+- The find field (⌘F) sits in the toolbar, left of "Find tools and
+  commands", instead of floating over the pages: the same controls (count,
+  previous, next, options, close), always there; typing into the empty
+  field starts a search, Esc ends it and leaves the field empty. The
+  floating bar's row became `find_row`/`find_apply`, shared by both.
+  Preferences ▸ "Find text in the toolbar" (on by default, persisted as
+  `find_in_toolbar`) brings the floating bar back.
+
+The preference label is in every catalog whose coverage test scans the UI
+literals (and es, uk, pl, el, te); `persist` sets the new key outside
+`json!`, which is at its recursion limit.
+
+Tests: `tests/toolbar_find.rs` (the button, typing into the docked field,
+⌘F focusing it, Esc, the preference off, persistence).
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ ROADMAP.md                           |   1 +
+ crates/ui-egui/src/canvas.rs         | 188 +++++++++++++++++----------
+ crates/ui-egui/src/chrome.rs         |  14 ++
+ crates/ui-egui/src/i18n/ar.tsv       |   3 +
+ crates/ui-egui/src/i18n/bg.tsv       |   3 +
+ crates/ui-egui/src/i18n/cs.tsv       |   3 +
+ crates/ui-egui/src/i18n/de.tsv       |   3 +
+ crates/ui-egui/src/i18n/el.tsv       |   3 +
+ crates/ui-egui/src/i18n/es.tsv       |   3 +
+ crates/ui-egui/src/i18n/fr.tsv       |   3 +
+ crates/ui-egui/src/i18n/hu.tsv       |   3 +
+ crates/ui-egui/src/i18n/it.tsv       |   3 +
+ crates/ui-egui/src/i18n/ja.tsv       |   3 +
+ crates/ui-egui/src/i18n/kk.tsv       |   3 +
+ crates/ui-egui/src/i18n/lt.tsv       |   3 +
+ crates/ui-egui/src/i18n/pl.tsv       |   3 +
+ crates/ui-egui/src/i18n/pt-br.tsv    |   3 +
+ crates/ui-egui/src/i18n/ru.tsv       |   3 +
+ crates/ui-egui/src/i18n/sl.tsv       |   3 +
+ crates/ui-egui/src/i18n/te.tsv       |   3 +
+ crates/ui-egui/src/i18n/tr.tsv       |   3 +
+ crates/ui-egui/src/i18n/uk.tsv       |   3 +
+ crates/ui-egui/src/i18n/zh-hans.tsv  |   3 +
+ crates/ui-egui/src/i18n/zh-hant.tsv  |   3 +
+ crates/ui-egui/src/js_ui.rs          |   1 +
+ crates/ui-egui/src/lib.rs            |  15 ++-
+ crates/ui-egui/tests/toolbar_find.rs | 121 +++++++++++++++++
+ 27 files changed, 334 insertions(+), 69 deletions(-)
+ create mode 100644 crates/ui-egui/tests/toolbar_find.rs
+
+diff --git a/ROADMAP.md b/ROADMAP.md
+index a035c9b..4ea7be7 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -148,6 +148,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
+ 
+ ## Progress log
+ 
++- **2026-10-13 (UI):** Save as beside Save in the toolbar; the find field docked in the toolbar, left of the command search (Preferences ▸ Find text in the toolbar, on by default).
+ - **2026-10-12 (M13, CLI robustness scans):** `pdfcraft-cli check` visits a directory once even when input roots overlap or directory symlinks lead back into the tree. PDFs reached through file symlinks remain accepted. Three real CLI regressions cover overlapping roots, a directory cycle and directory/file aliases. Estimates unchanged.
+ - **2026-10-12 (M4, Type 3 extraction fidelity):** Extract and Split preserve shared image/resource dictionaries reached through Type 3 glyphs, including nested forms, patterns and soft masks. A bounded object-graph walk protects unknown glyph content; unreadable pages/forms retain their glyph resources, and shared explicit fonts are visited once. Separate page dictionaries still prune unused images. Synthetic save/reopen regressions and an opt-in Poppler pixel oracle cover resource ownership, nested forms, cycles, limits and repeated fonts. Estimates unchanged.
+ - **2026-10-12 (M2, TIFF predictor rows):** Packed RGB images using TIFF horizontal differencing keep every row when samples do not fill the last byte. The renderer aligns each decoded row before moving to the next. Synthetic decoding tests cover 1/2/4-bit samples, horizontal differencing and an 8-bit control; a red/green page-render regression verifies visible output. Estimates unchanged.
+diff --git a/crates/ui-egui/src/canvas.rs b/crates/ui-egui/src/canvas.rs
+index 9dc2c98..66a7ed8 100644
+--- a/crates/ui-egui/src/canvas.rs
++++ b/crates/ui-egui/src/canvas.rs
+@@ -2312,6 +2312,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
+         | QuickTool::Snapshot => false,
+     };
+     let prefs = &app.comment_prefs;
++    let docked_find = app.find_in_toolbar;
+     let units = app.units;
+     let allowed = doc.allows_annotation();
+     let comments_hidden = doc.comments_hidden();
+@@ -3257,7 +3258,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
+             });
+         });
+     }
+-    find_bar(view, info.pages.len(), avail, ui, &t);
++    find_bar(view, info.pages.len(), avail, ui, &t, docked_find);
+     if tool == QuickTool::EnhanceCamera {
+         crate::camera_ui::bar(ui.ctx(), view, avail, &t, can_modify);
+     }
+@@ -3606,16 +3607,19 @@ fn set_layers(app: &mut PdfCraftApp, index: usize, changes: &[(LayerOp, (u32, u1
+     }
+ }
+ 
+-/// Acrobat-style floating find bar at the top-right of the document area.
+-fn find_bar(view: &mut DocView, pages: usize, area: Rect, ui: &mut egui::Ui, t: &Tokens) {
++/// Acrobat-style floating find bar at the top-right of the document area. With the find field in
++/// the toolbar (`PdfCraftApp::find_in_toolbar`, [`find_toolbar`]) nothing floats.
++fn find_bar(view: &mut DocView, pages: usize, area: Rect, ui: &mut egui::Ui, t: &Tokens, docked: bool) {
++    if docked {
++        return;
++    }
+     let Some(find) = view.find.as_mut() else { return };
+     // The Search panel shows this search.
+     if find.in_panel {
+         return;
+     }
+-    let mut close = false;
+-    let mut step: Option<bool> = None;
+     let searched = view.texts.len() + view.text_failed.len();
++    let mut outcome = FindOutcome::default();
+     egui::Area::new(egui::Id::new("find-bar"))
+         .order(egui::Order::Middle)
+         .pivot(Align2::RIGHT_TOP)
+@@ -3628,76 +3632,128 @@ fn find_bar(view: &mut DocView, pages: usize, area: Rect, ui: &mut egui::Ui, t:
+                 .shadow(egui::Shadow { offset: [0, 4], blur: 16, spread: 0, color: Color32::from_black_alpha(if t.dark() { 90 } else { 30 }) })
+                 .inner_margin(egui::Margin::symmetric(10, 6))
+                 .show(ui, |ui| {
+-                    ui.horizontal(|ui| {
++                    outcome = find_row(find, pages, searched, 220.0, ui, t);
++                });
++        });
++    find_apply(view, outcome);
++}
++
++/// The find field docked in the toolbar, left of the command search: the same controls as the
++/// floating bar, always there. Typing into the empty field starts a search; Esc or the close
++/// button ends it and leaves the field empty.
++pub(crate) fn find_toolbar(view: &mut DocView, pages: usize, ui: &mut egui::Ui, t: &Tokens) {
++    let searched = view.texts.len() + view.text_failed.len();
++    let mut outcome = FindOutcome::default();
++    let mut started: Option<String> = None;
++    egui::Frame::NONE
++        .fill(t.field)
++        .stroke(Stroke::new(1.0, t.border))
++        .corner_radius(CornerRadius::same(16))
++        .inner_margin(egui::Margin::symmetric(8, 0))
++        .show(ui, |ui| {
++            ui.set_height(30.0);
++            // Left to right inside the toolbar's right-to-left row: icon, field, count, buttons.
++            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| match view.find.as_mut().filter(|find| !find.in_panel) {
++                Some(find) => outcome = find_row(find, pages, searched, 170.0, ui, t),
++                None => {
++                    // No search yet: a draft field; the first character opens the search with it.
++                    let mut draft = String::new();
++                    ui.horizontal_centered(|ui| {
+                         ui.add(icons::image("search", 16.0, t.text_muted));
+-                        let edit = egui::TextEdit::singleline(&mut find.query)
+-                            .id(egui::Id::new("find-input"))
+-                            .hint_text(tl!("Find text"))
+-                            .desired_width(220.0)
+-                            .frame(egui::Frame::NONE);
+-                        let r = ui.add(edit);
+-                        if find.focus {
+-                            r.request_focus();
+-                            find.focus = false;
+-                        }
+-                        if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+-                            step = Some(!ui.input(|i| i.modifiers.shift));
+-                            r.request_focus();
+-                        }
+-                        if r.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+-                            close = true;
+-                        }
+-                        let status = if find.query.trim().is_empty() {
+-                            String::new()
+-                        } else if find.matches.is_empty() {
+-                            if searched < pages {
+-                                crate::i18n::fmt(tl!("Searching… {s}/{p}"), &[("s", &searched.to_string()), ("p", &pages.to_string())])
+-                            } else {
+-                                tl!("No matches").to_string()
+-                            }
+-                        } else {
+-                            let more = if searched < pages { "+" } else { "" };
+-                            crate::i18n::fmt(
+-                                tl!("{c} of {n}{more}"),
+-                                &[
+-                                    ("c", &find.current.map(|c| c + 1).unwrap_or(0).to_string()),
+-                                    ("n", &find.matches.len().to_string()),
+-                                    ("more", more),
+-                                ],
+-                            )
+-                        };
+-                        ui.label(egui::RichText::new(status).font(theme::regular(12.0)).color(t.text_muted));
+-                        let tip = crate::commands::key_tip(ui.ctx(), tl!("Previous ({key})"), crate::commands::FIND_PREV);
+-                        if icons::button(ui, "chevron-up", 26.0, false, &tip).clicked() {
+-                            step = Some(false);
+-                        }
+-                        let tip = crate::commands::key_tip(ui.ctx(), tl!("Next ({key})"), crate::commands::FIND_NEXT);
+-                        if icons::button(ui, "chevron-down", 26.0, false, &tip).clicked() {
+-                            step = Some(true);
+-                        }
+-                        let opts = icons::button(ui, "settings-2", 26.0, find.case_sensitive || find.whole_words, tl!("Find options"));
+-                        egui::Popup::menu(&opts).show(|ui| {
+-                            let a = ui.add(widgets::checkbox(&mut find.whole_words, tl!("Whole words only"))).changed();
+-                            let b = ui.add(widgets::checkbox(&mut find.case_sensitive, tl!("Case-sensitive"))).changed();
+-                            if a || b {
+-                                // Search again with the new options.
+-                                find.case_query.clear();
+-                            }
+-                        });
+-                        if icons::button(ui, "x", 26.0, false, tl!("Close (Esc)")).clicked() {
+-                            close = true;
++                        let r = ui.add(find_input(&mut draft, 170.0));
++                        if r.changed() && !draft.is_empty() {
++                            started = Some(draft.clone());
+                         }
+                     });
+-                });
++                }
++            });
++        });
++    if let Some(query) = started {
++        view.find = Some(Find { query, focus: true, ..Default::default() });
++    }
++    find_apply(view, outcome);
++}
++
++/// What the user asked of the find controls in one frame.
++#[derive(Default)]
++pub(crate) struct FindOutcome {
++    close: bool,
++    /// `Some(forward)`: go to the next (true) or previous match.
++    step: Option<bool>,
++}
++
++fn find_input(query: &mut String, width: f32) -> egui::TextEdit<'_> {
++    egui::TextEdit::singleline(query).id(egui::Id::new("find-input")).hint_text(tl!("Find text")).desired_width(width).frame(egui::Frame::NONE)
++}
++
++/// The find controls, floating or docked: the field, the match count, previous, next, options and
++/// close. `searched` is how many pages have their text extracted so far.
++fn find_row(find: &mut Find, pages: usize, searched: usize, input_width: f32, ui: &mut egui::Ui, t: &Tokens) -> FindOutcome {
++    let mut outcome = FindOutcome::default();
++    ui.horizontal_centered(|ui| {
++        ui.add(icons::image("search", 16.0, t.text_muted));
++        let r = ui.add(find_input(&mut find.query, input_width));
++        if find.focus {
++            r.request_focus();
++            find.focus = false;
++        }
++        if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
++            outcome.step = Some(!ui.input(|i| i.modifiers.shift));
++            r.request_focus();
++        }
++        if r.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
++            outcome.close = true;
++        }
++        let status = if find.query.trim().is_empty() {
++            String::new()
++        } else if find.matches.is_empty() {
++            if searched < pages {
++                crate::i18n::fmt(tl!("Searching… {s}/{p}"), &[("s", &searched.to_string()), ("p", &pages.to_string())])
++            } else {
++                tl!("No matches").to_string()
++            }
++        } else {
++            let more = if searched < pages { "+" } else { "" };
++            crate::i18n::fmt(
++                tl!("{c} of {n}{more}"),
++                &[("c", &find.current.map(|c| c + 1).unwrap_or(0).to_string()), ("n", &find.matches.len().to_string()), ("more", more)],
++            )
++        };
++        ui.label(egui::RichText::new(status).font(theme::regular(12.0)).color(t.text_muted));
++        let tip = crate::commands::key_tip(ui.ctx(), tl!("Previous ({key})"), crate::commands::FIND_PREV);
++        if icons::button(ui, "chevron-up", 26.0, false, &tip).clicked() {
++            outcome.step = Some(false);
++        }
++        let tip = crate::commands::key_tip(ui.ctx(), tl!("Next ({key})"), crate::commands::FIND_NEXT);
++        if icons::button(ui, "chevron-down", 26.0, false, &tip).clicked() {
++            outcome.step = Some(true);
++        }
++        let opts = icons::button(ui, "settings-2", 26.0, find.case_sensitive || find.whole_words, tl!("Find options"));
++        egui::Popup::menu(&opts).show(|ui| {
++            let a = ui.add(widgets::checkbox(&mut find.whole_words, tl!("Whole words only"))).changed();
++            let b = ui.add(widgets::checkbox(&mut find.case_sensitive, tl!("Case-sensitive"))).changed();
++            if a || b {
++                // Search again with the new options.
++                find.case_query.clear();
++            }
+         });
+-    if close {
++        if icons::button(ui, "x", 26.0, false, tl!("Close (Esc)")).clicked() {
++            outcome.close = true;
++        }
++    });
++    outcome
++}
++
++/// Act on the find controls: close, search again after the query changed, step between matches.
++fn find_apply(view: &mut DocView, outcome: FindOutcome) {
++    if outcome.close {
+         view.find = None;
+         return;
+     }
+-    if find.query != find.case_query {
++    if view.find.as_ref().is_some_and(|f| f.query != f.case_query) {
+         view.rerun_find();
+     }
+-    if let Some(forward) = step {
++    if let Some(forward) = outcome.step {
+         view.find_step(forward);
+     }
+ }
+diff --git a/crates/ui-egui/src/chrome.rs b/crates/ui-egui/src/chrome.rs
+index 7801878..ad79792 100644
+--- a/crates/ui-egui/src/chrome.rs
++++ b/crates/ui-egui/src/chrome.rs
+@@ -431,6 +431,12 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+                         if icons::button(ui, "printer", 32.0, false, &tip).clicked() {
+                             app.run_command("print.dialog");
+                         }
++                        // Save as beside Save, worded from the command (its label has the "…").
++                        let label = crate::i18n::menu_label("file.save_as", "Save as…");
++                        let tip = format!("{} ({})", label.trim_end_matches('…'), crate::commands::command_shortcut_label(ui.ctx(), "file.save_as"));
++                        if icons::button(ui, "file-output", 32.0, false, &tip).clicked() {
++                            app.run_command("file.save_as");
++                        }
+                         let tip = crate::commands::command_tip(ui.ctx(), tl!("Save ({key})"), "file.save");
+                         if icons::button(ui, "save", 32.0, false, &tip).clicked() {
+                             app.run_command("file.save");
+@@ -444,6 +450,14 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+                     if widgets::search_box(ui, tl!("Find tools and commands"), 260.0).clicked() {
+                         app.palette_open = true;
+                     }
++                    // The find field, docked left of the command search (Preferences).
++                    if app.find_in_toolbar
++                        && let Some((index, id)) = app.active_ids()
++                    {
++                        let pages = app.session.get(id).map_or(0, |d| d.info.pages.len());
++                        ui.add_space(8.0);
++                        crate::canvas::find_toolbar(&mut app.views[index], pages, ui, &t);
++                    }
+                 });
+             });
+         });
+diff --git a/crates/ui-egui/src/i18n/ar.tsv b/crates/ui-egui/src/i18n/ar.tsv
+index 222865d..38f2b0b 100644
+--- a/crates/ui-egui/src/i18n/ar.tsv
++++ b/crates/ui-egui/src/i18n/ar.tsv
+@@ -2373,3 +2373,6 @@ animation effects	Off	معطّلة
+ 	This document is trying to open a local file:	يحاول هذا المستند فتح ملف محلي:
+ 	Move tag earlier	نقل العلامة للأعلى
+ 	Move tag later	نقل العلامة للأسفل
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	البحث عن نص في شريط الأدوات
+diff --git a/crates/ui-egui/src/i18n/bg.tsv b/crates/ui-egui/src/i18n/bg.tsv
+index 17a0890..a7e613f 100644
+--- a/crates/ui-egui/src/i18n/bg.tsv
++++ b/crates/ui-egui/src/i18n/bg.tsv
+@@ -2315,3 +2315,6 @@ animation effects	Off	Изключени
+ 	This document is trying to open a local file:	Този документ се опитва да отвори локален файл:
+ 	Move tag earlier	Преместване на етикета по-рано
+ 	Move tag later	Преместване на етикета по-късно
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Търсене на текст в лентата с инструменти
+diff --git a/crates/ui-egui/src/i18n/cs.tsv b/crates/ui-egui/src/i18n/cs.tsv
+index e6e29c8..ec1d210 100644
+--- a/crates/ui-egui/src/i18n/cs.tsv
++++ b/crates/ui-egui/src/i18n/cs.tsv
+@@ -2426,3 +2426,6 @@ animation effects	Off	Vypnuto
+ 	This document is trying to open a local file:	Tento dokument se pokouší otevřít místní soubor:
+ 	Move tag earlier	Přesunout značku dříve
+ 	Move tag later	Přesunout značku později
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Hledat text na panelu nástrojů
+diff --git a/crates/ui-egui/src/i18n/de.tsv b/crates/ui-egui/src/i18n/de.tsv
+index 38ef665..987371c 100644
+--- a/crates/ui-egui/src/i18n/de.tsv
++++ b/crates/ui-egui/src/i18n/de.tsv
+@@ -2353,3 +2353,6 @@ animation effects	Off	Aus
+ 	This document is trying to open a local file:	Dieses Dokument versucht, eine lokale Datei zu öffnen:
+ 	Move tag earlier	Tag früher verschieben
+ 	Move tag later	Tag später verschieben
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Textsuche in der Symbolleiste
+diff --git a/crates/ui-egui/src/i18n/el.tsv b/crates/ui-egui/src/i18n/el.tsv
+index 106278f..c61c9f2 100644
+--- a/crates/ui-egui/src/i18n/el.tsv
++++ b/crates/ui-egui/src/i18n/el.tsv
+@@ -2362,3 +2362,6 @@ animation effects	Off	Ανενεργά
+ 	This document is trying to open a local file:	Αυτό το έγγραφο προσπαθεί να ανοίξει ένα τοπικό αρχείο:
+ 	Move tag earlier	Μετακίνηση ετικέτας νωρίτερα
+ 	Move tag later	Μετακίνηση ετικέτας αργότερα
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Αναζήτηση κειμένου στη γραμμή εργαλείων
+diff --git a/crates/ui-egui/src/i18n/es.tsv b/crates/ui-egui/src/i18n/es.tsv
+index 5afbe4f..aa0e025 100644
+--- a/crates/ui-egui/src/i18n/es.tsv
++++ b/crates/ui-egui/src/i18n/es.tsv
+@@ -2482,3 +2482,6 @@ animation effects	Off	Desactivados
+ 	This document is trying to open a local file:	Este documento intenta abrir un archivo local:
+ 	Move tag earlier	Mover etiqueta antes
+ 	Move tag later	Mover etiqueta después
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Buscar texto en la barra de herramientas
+diff --git a/crates/ui-egui/src/i18n/fr.tsv b/crates/ui-egui/src/i18n/fr.tsv
+index 7938983..abcf76b 100644
+--- a/crates/ui-egui/src/i18n/fr.tsv
++++ b/crates/ui-egui/src/i18n/fr.tsv
+@@ -2352,3 +2352,6 @@ animation effects	Off	Désactivés
+ 	This document is trying to open a local file:	Ce document tente d’ouvrir un fichier local :
+ 	Move tag earlier	Déplacer la balise plus tôt
+ 	Move tag later	Déplacer la balise plus tard
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Rechercher du texte dans la barre d'outils
+diff --git a/crates/ui-egui/src/i18n/hu.tsv b/crates/ui-egui/src/i18n/hu.tsv
+index 3d6e1e3..9635319 100644
+--- a/crates/ui-egui/src/i18n/hu.tsv
++++ b/crates/ui-egui/src/i18n/hu.tsv
+@@ -2351,3 +2351,6 @@ animation effects	Off	Ki
+ 	This document is trying to open a local file:	Ez a dokumentum egy helyi fájlt próbál megnyitni:
+ 	Move tag earlier	Címke korábbra helyezése
+ 	Move tag later	Címke későbbre helyezése
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Szövegkeresés az eszköztáron
+diff --git a/crates/ui-egui/src/i18n/it.tsv b/crates/ui-egui/src/i18n/it.tsv
+index 3575ab3..514f3b5 100644
+--- a/crates/ui-egui/src/i18n/it.tsv
++++ b/crates/ui-egui/src/i18n/it.tsv
+@@ -2361,3 +2361,6 @@ animation effects	Off	Disattivati
+ 	This document is trying to open a local file:	Questo documento sta tentando di aprire un file locale:
+ 	Move tag earlier	Sposta tag prima
+ 	Move tag later	Sposta tag dopo
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Campo di ricerca nella barra degli strumenti
+diff --git a/crates/ui-egui/src/i18n/ja.tsv b/crates/ui-egui/src/i18n/ja.tsv
+index 5e61802..1e26c54 100644
+--- a/crates/ui-egui/src/i18n/ja.tsv
++++ b/crates/ui-egui/src/i18n/ja.tsv
+@@ -2352,3 +2352,6 @@ animation effects	Off	オフ
+ 	This document is trying to open a local file:	この文書はローカルファイルを開こうとしています：
+ 	Move tag earlier	タグを前へ移動
+ 	Move tag later	タグを後へ移動
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	ツールバーにテキスト検索を表示
+diff --git a/crates/ui-egui/src/i18n/kk.tsv b/crates/ui-egui/src/i18n/kk.tsv
+index 8e4a090..c190168 100644
+--- a/crates/ui-egui/src/i18n/kk.tsv
++++ b/crates/ui-egui/src/i18n/kk.tsv
+@@ -2350,3 +2350,6 @@ animation effects	Off	Өшірулі
+ 	This document is trying to open a local file:	Бұл құжат жергілікті файлды ашуға әрекеттеніп жатыр:
+ 	Move tag earlier	Тегті ертерек жылжыту
+ 	Move tag later	Тегті кейінірек жылжыту
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Құралдар тақтасында мәтін іздеу
+diff --git a/crates/ui-egui/src/i18n/lt.tsv b/crates/ui-egui/src/i18n/lt.tsv
+index ae61e39..ae2dea4 100644
+--- a/crates/ui-egui/src/i18n/lt.tsv
++++ b/crates/ui-egui/src/i18n/lt.tsv
+@@ -2596,3 +2596,6 @@ key	Space	Tarpas
+ 	This document is trying to open a local file:	Šis dokumentas bando atverti vietinį failą:
+ 	Move tag earlier	Perkelti žymą anksčiau
+ 	Move tag later	Perkelti žymą vėliau
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Teksto paieška įrankių juostoje
+diff --git a/crates/ui-egui/src/i18n/pl.tsv b/crates/ui-egui/src/i18n/pl.tsv
+index 310a990..a770f84 100644
+--- a/crates/ui-egui/src/i18n/pl.tsv
++++ b/crates/ui-egui/src/i18n/pl.tsv
+@@ -2332,3 +2332,6 @@ animation effects	Off	Wyłączone
+ 	This document is trying to open a local file:	Ten dokument próbuje otworzyć plik lokalny:
+ 	Move tag earlier	Przenieś znacznik wcześniej
+ 	Move tag later	Przenieś znacznik później
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Szukaj tekstu na pasku narzędzi
+diff --git a/crates/ui-egui/src/i18n/pt-br.tsv b/crates/ui-egui/src/i18n/pt-br.tsv
+index 623d69c..01c02ab 100644
+--- a/crates/ui-egui/src/i18n/pt-br.tsv
++++ b/crates/ui-egui/src/i18n/pt-br.tsv
+@@ -2366,3 +2366,6 @@ animation effects	Off	Desativados
+ 	This document is trying to open a local file:	Este documento está tentando abrir um arquivo local:
+ 	Move tag earlier	Mover tag para antes
+ 	Move tag later	Mover tag para depois
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Localizar texto na barra de ferramentas
+diff --git a/crates/ui-egui/src/i18n/ru.tsv b/crates/ui-egui/src/i18n/ru.tsv
+index 7f62808..b08f6bc 100644
+--- a/crates/ui-egui/src/i18n/ru.tsv
++++ b/crates/ui-egui/src/i18n/ru.tsv
+@@ -2265,3 +2265,6 @@ animation effects	Off	Выкл
+ 	This document is trying to open a local file:	Этот документ пытается открыть локальный файл:
+ 	Move tag earlier	Переместить тег раньше
+ 	Move tag later	Переместить тег позже
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Поиск текста на панели инструментов
+diff --git a/crates/ui-egui/src/i18n/sl.tsv b/crates/ui-egui/src/i18n/sl.tsv
+index 3feaad3..d7e04a9 100644
+--- a/crates/ui-egui/src/i18n/sl.tsv
++++ b/crates/ui-egui/src/i18n/sl.tsv
+@@ -2357,3 +2357,6 @@ animation effects	Off	Izklopljeni
+ 	This document is trying to open a local file:	Ta dokument poskuša odpreti lokalno datoteko:
+ 	Move tag earlier	Premakni oznako prej
+ 	Move tag later	Premakni oznako pozneje
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Iskanje besedila v orodni vrstici
+diff --git a/crates/ui-egui/src/i18n/te.tsv b/crates/ui-egui/src/i18n/te.tsv
+index d15365f..0f2a2c1 100644
+--- a/crates/ui-egui/src/i18n/te.tsv
++++ b/crates/ui-egui/src/i18n/te.tsv
+@@ -2265,3 +2265,6 @@ animation effects	Off	ఆఫ్
+ 	This document is trying to open a local file:	ఈ పత్రం ఒక స్థానిక ఫైల్‌ను తెరవడానికి ప్రయత్నిస్తోంది:
+ 	Move tag earlier	ట్యాగ్‌ను ముందుకు తరలించు
+ 	Move tag later	ట్యాగ్‌ను వెనుకకు తరలించు
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	టూల్‌బార్‌లో వచనాన్ని కనుగొనండి
+diff --git a/crates/ui-egui/src/i18n/tr.tsv b/crates/ui-egui/src/i18n/tr.tsv
+index 44fd05f..1f59785 100644
+--- a/crates/ui-egui/src/i18n/tr.tsv
++++ b/crates/ui-egui/src/i18n/tr.tsv
+@@ -2348,3 +2348,6 @@ animation effects	Off	Kapalı
+ 	This document is trying to open a local file:	Bu belge yerel bir dosya açmaya çalışıyor:
+ 	Move tag earlier	Etiketi daha erken taşı
+ 	Move tag later	Etiketi daha geç taşı
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Metin aramayı araç çubuğunda göster
+diff --git a/crates/ui-egui/src/i18n/uk.tsv b/crates/ui-egui/src/i18n/uk.tsv
+index 648dc85..7bfb1b3 100644
+--- a/crates/ui-egui/src/i18n/uk.tsv
++++ b/crates/ui-egui/src/i18n/uk.tsv
+@@ -2374,3 +2374,6 @@ animation effects	Off	Вимкнено
+ 	This document is trying to open a local file:	Цей документ намагається відкрити локальний файл:
+ 	Move tag earlier	Перемістити тег раніше
+ 	Move tag later	Перемістити тег пізніше
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	Пошук тексту на панелі інструментів
+diff --git a/crates/ui-egui/src/i18n/zh-hans.tsv b/crates/ui-egui/src/i18n/zh-hans.tsv
+index 391c8ed..298efb8 100644
+--- a/crates/ui-egui/src/i18n/zh-hans.tsv
++++ b/crates/ui-egui/src/i18n/zh-hans.tsv
+@@ -2316,3 +2316,6 @@ animation effects	Off	关
+ 	This document is trying to open a local file:	此文档正尝试打开本地文件：
+ 	Move tag earlier	将标签前移
+ 	Move tag later	将标签后移
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	在工具栏中查找文本
+diff --git a/crates/ui-egui/src/i18n/zh-hant.tsv b/crates/ui-egui/src/i18n/zh-hant.tsv
+index da45921..90ff0a9 100644
+--- a/crates/ui-egui/src/i18n/zh-hant.tsv
++++ b/crates/ui-egui/src/i18n/zh-hant.tsv
+@@ -2226,3 +2226,6 @@ animation effects	Off	關
+ 	This document is trying to open a local file:	此文件正嘗試開啟本機檔案：
+ 	Move tag earlier	將標記前移
+ 	Move tag later	將標記後移
++
++# Preferences: the find field docked in the toolbar.
++	Find text in the toolbar	在工具列中尋找文字
+diff --git a/crates/ui-egui/src/js_ui.rs b/crates/ui-egui/src/js_ui.rs
+index fe47462..d1b9d36 100644
+--- a/crates/ui-egui/src/js_ui.rs
++++ b/crates/ui-egui/src/js_ui.rs
+@@ -381,6 +381,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
+     // The web build has no files on disk to watch.
+     #[cfg(not(target_arch = "wasm32"))]
+     ui.add(widgets::checkbox(&mut app.reload_changed_files, tl!("Reload documents when their files change on disk")));
++    ui.add(widgets::checkbox(&mut app.find_in_toolbar, tl!("Find text in the toolbar")));
+     ui.horizontal(|ui| {
+         ui.label(tl!("Mouse wheel scroll speed"));
+         for speed in crate::scroll_speed::ScrollSpeed::ALL {
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index ea3da00..12a5c38 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -551,6 +551,9 @@ pub struct PdfCraftApp {
+     pub recent: Vec<RecentFile>,
+     /// Preferences: reopen the files that were open when PdfCraft last closed (#442).
+     pub reopen_last_session: bool,
++    /// The find field (⌘F) sits in the toolbar, left of the command search, instead of floating
++    /// over the pages (Preferences).
++    pub find_in_toolbar: bool,
+     /// The files open when PdfCraft last closed, read from the settings for
+     /// [`PdfCraftApp::reopen_last_files`].
+     pub last_session: last_session::LastSession,
+@@ -905,6 +908,7 @@ impl PdfCraftApp {
+             all_tools_expanded: false,
+             recent: Vec::new(),
+             reopen_last_session: false,
++            find_in_toolbar: true,
+             last_session: Default::default(),
+             quit_session: None,
+             reload_changed_files: true,
+@@ -2074,7 +2078,7 @@ impl PdfCraftApp {
+     /// Serialize the user's persistent state (recent files, theme). Local only.
+     pub fn persist(&self) -> String {
+         let trusted: Vec<String> = self.session.trusted_certificates().iter().map(pdfcraft_engine::sign::x509::to_pem).collect();
+-        serde_json::json!({
++        let mut v = serde_json::json!({
+             "docking": self.docking,
+             "docking_left_open": self.left_open,
+             "docking_right": self.right,
+@@ -2133,8 +2137,10 @@ impl PdfCraftApp {
+             "combine_zoom": self.combine_zoom,
+             "comments_panel_closed": self.comments_panel_closed,
+             "right_panel_closed": self.right_panel_closed,
+-        })
+-        .to_string()
++        });
++        // One more key than `json!` expands within the recursion limit.
++        v["find_in_toolbar"] = serde_json::Value::Bool(self.find_in_toolbar);
++        v.to_string()
+     }
+ 
+     /// Restore state written by `persist`. Unknown or malformed data is ignored.
+@@ -2165,6 +2171,9 @@ impl PdfCraftApp {
+         if let Some(on) = v["reopen_last_session"].as_bool() {
+             self.reopen_last_session = on;
+         }
++        if let Some(on) = v["find_in_toolbar"].as_bool() {
++            self.find_in_toolbar = on;
++        }
+         self.last_session = last_session::LastSession::from_json(&v["last_session"]);
+         if let Some(on) = v["system_title_bar"].as_bool() {
+             self.system_title_bar = on;
+diff --git a/crates/ui-egui/tests/toolbar_find.rs b/crates/ui-egui/tests/toolbar_find.rs
+new file mode 100644
+index 0000000..8c379b6
+--- /dev/null
++++ b/crates/ui-egui/tests/toolbar_find.rs
+@@ -0,0 +1,121 @@
++//! The find field docked in the toolbar (Preferences ▸ Find text in the toolbar, on by default)
++//! and the Save as button beside Save.
++
++use egui_kittest::Harness;
++use egui_kittest::kittest::Queryable;
++use pdfcraft_ui_egui::PdfCraftApp;
++
++/// `n` pages of 200×300; page i says "Page i+1" plus "page" and "Pages" for find tests.
++fn fixture(n: usize) -> Vec<u8> {
++    let mut objs: Vec<String> = vec!["<< /Type /Catalog /Pages 2 0 R >>".into()];
++    let kids: Vec<String> = (0..n).map(|i| format!("{} 0 R", 4 + 2 * i)).collect();
++    objs.push(format!("<< /Type /Pages /Kids [{}] /Count {n} /MediaBox [0 0 200 300] >>", kids.join(" ")));
++    objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into());
++    for i in 0..n {
++        objs.push(format!("<< /Type /Page /Parent 2 0 R /Contents {} 0 R /Resources << /Font << /F1 3 0 R >> >> >>", 5 + 2 * i));
++        let body = format!("BT /F1 18 Tf 20 150 Td (Page {} pages PAGE) Tj ET", i + 1);
++        objs.push(format!("<< /Length {} >>\nstream\n{body}\nendstream", body.len()));
++    }
++    let mut out = b"%PDF-1.7\n".to_vec();
++    let mut offs = Vec::new();
++    for (i, o) in objs.iter().enumerate() {
++        offs.push(out.len());
++        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
++    }
++    let x = out.len();
++    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
++    for o in offs {
++        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
++    }
++    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n", objs.len() + 1).as_bytes());
++    out
++}
++
++fn harness(find_in_toolbar: bool) -> Harness<'static, PdfCraftApp> {
++    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
++        let mut app = PdfCraftApp::new();
++        app.set_option("language", "en").unwrap();
++        app.find_in_toolbar = find_in_toolbar;
++        app.open_bytes("a.pdf", None, fixture(3)).unwrap();
++        app
++    });
++    for _ in 0..3000 {
++        h.run_steps(2);
++        if !h.state().render_pending() {
++            break;
++        }
++        std::thread::sleep(std::time::Duration::from_millis(5));
++    }
++    h
++}
++
++fn floating_bar_shown(h: &Harness<'static, PdfCraftApp>) -> bool {
++    h.ctx.memory(|m| m.areas().visible_last_frame(&egui::LayerId::new(egui::Order::Middle, egui::Id::new("find-bar"))))
++}
++
++fn wait_for_matches(h: &mut Harness<'static, PdfCraftApp>, at_least: usize) -> usize {
++    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
++    while std::time::Instant::now() < deadline {
++        h.run_steps(2);
++        std::thread::sleep(std::time::Duration::from_millis(5));
++        if h.state().views[0].find.as_ref().is_some_and(|f| f.matches.len() >= at_least) {
++            break;
++        }
++    }
++    h.state().views[0].find.as_ref().map_or(0, |f| f.matches.len())
++}
++
++#[test]
++fn the_toolbar_has_save_as_beside_save() {
++    let h = harness(true);
++    h.get_by_label_contains("Save as (");
++    h.get_by_label_contains("Save (");
++}
++
++#[test]
++fn typing_into_the_toolbar_field_starts_a_search_and_nothing_floats() {
++    let mut h = harness(true);
++    assert!(h.state().views[0].find.is_none());
++    // The empty field is there before any search: focus it and type.
++    h.ctx.memory_mut(|m| m.request_focus(egui::Id::new("find-input")));
++    h.run_steps(1);
++    assert!(h.ctx.memory(|m| m.has_focus(egui::Id::new("find-input"))), "the draft field is in the toolbar");
++    h.input_mut().events.push(egui::Event::Text("page".into()));
++    h.run_steps(2);
++    assert_eq!(h.state().views[0].find.as_ref().map(|f| f.query.as_str()), Some("page"));
++    assert_eq!(wait_for_matches(&mut h, 9), 9, "three matches a page, three pages");
++    assert!(!floating_bar_shown(&h), "the docked field replaces the floating bar");
++    // ⌘F focuses the same field rather than opening a floating bar.
++    h.state_mut().views[0].open_find();
++    h.run_steps(2);
++    assert!(!floating_bar_shown(&h));
++    assert!(h.ctx.memory(|m| m.has_focus(egui::Id::new("find-input"))));
++    // Esc ends the search; the field stays, empty.
++    h.key_press(egui::Key::Escape);
++    h.run_steps(2);
++    assert!(h.state().views[0].find.is_none());
++    h.ctx.memory_mut(|m| m.request_focus(egui::Id::new("find-input")));
++    h.run_steps(1);
++    assert!(h.ctx.memory(|m| m.has_focus(egui::Id::new("find-input"))), "the empty field is still there");
++}
++
++#[test]
++fn with_the_preference_off_the_bar_floats_as_before() {
++    let mut h = harness(false);
++    h.state_mut().views[0].open_find();
++    h.state_mut().views[0].find.as_mut().unwrap().query = "page".into();
++    h.state_mut().views[0].rerun_find();
++    assert_eq!(wait_for_matches(&mut h, 9), 9);
++    assert!(floating_bar_shown(&h));
++}
++
++#[test]
++fn the_preference_is_kept_across_launches() {
++    let mut app = PdfCraftApp::new();
++    assert!(app.find_in_toolbar, "on by default");
++    app.find_in_toolbar = false;
++    let json = app.persist();
++    let mut again = PdfCraftApp::new();
++    again.restore(&json);
++    assert!(!again.find_in_toolbar);
++}
+-- 
+2.54.0 (Apple Git-157)
+

@@ -1,0 +1,530 @@
+From 863aaeb03055b8942ae7aeeb5e983ffe2c4bc08e Mon Sep 17 00:00:00 2001
+From: Emanuele Bottelli <bottelliemanuele@icloud.com>
+Date: Tue, 13 Oct 2026 15:49:03 +0200
+Subject: [PATCH] i18n: the macOS application menu follows the interface
+ language
+
+AppKit builds the application menu (About, Services, Hide, Hide Others,
+Show All, Quit) in English for apps without a nib, and winit's default
+menu is one, so it stayed English while the rest of PdfCraft was in the
+user's language.
+
+- vendor/winit, patch (12): `platform::macos::set_app_menu_titles`, a
+  safe function that retitles the standard items, finding each by its
+  action and the Services item by its submenu; a main menu the app
+  replaced is left alone.
+- ui-egui: `PdfCraftApp::on_language`, told the interface language once
+  at start and on every change of the preference (Preferences, `ui.set`,
+  restore), and asked again next frame while it says it is not done.
+- apps/pdfcraft: `mac_menu` words the six titles from the catalog with
+  `{app}` as the process name and applies them; English catalogs keep
+  what AppKit showed.
+- Italian and Lithuanian entries (the Lithuanian catalog must cover every
+  bundled key); other catalogs fall back to English until translated.
+- tests: `mac_menu` titles per language, `language_hook`, the vendored
+  patch guard `winit_macos_app_menu`.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ Cargo.lock                                   |  1 +
+ ROADMAP.md                                   |  1 +
+ apps/pdfcraft/Cargo.toml                     |  4 +
+ apps/pdfcraft/src/mac_menu.rs                | 89 ++++++++++++++++++++
+ apps/pdfcraft/src/main.rs                    |  5 ++
+ apps/pdfcraft/tests/winit_macos_app_menu.rs  | 17 ++++
+ crates/ui-egui/src/i18n/it.tsv               |  9 ++
+ crates/ui-egui/src/i18n/lt.tsv               |  8 ++
+ crates/ui-egui/src/lib.rs                    | 24 ++++++
+ crates/ui-egui/tests/language_hook.rs        | 53 ++++++++++++
+ docs/localization.md                         |  2 +
+ vendor/README.md                             |  2 +-
+ vendor/winit/src/platform/macos.rs           | 30 +++++++
+ vendor/winit/src/platform_impl/macos/menu.rs | 46 ++++++++++
+ vendor/winit/src/platform_impl/macos/mod.rs  |  2 +-
+ 15 files changed, 291 insertions(+), 2 deletions(-)
+ create mode 100644 apps/pdfcraft/src/mac_menu.rs
+ create mode 100644 apps/pdfcraft/tests/winit_macos_app_menu.rs
+ create mode 100644 crates/ui-egui/tests/language_hook.rs
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 8d2aac7..3937963 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3577,6 +3577,7 @@ dependencies = [
+  "wayland-client",
+  "wayland-protocols",
+  "windows",
++ "winit",
+  "winresource",
+  "winsafe",
+ ]
+diff --git a/ROADMAP.md b/ROADMAP.md
+index a035c9b..21a9e33 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -148,6 +148,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
+ 
+ ## Progress log
+ 
++- **2026-10-13 (i18n):** The macOS application menu (About, Services, Hide, Quit) follows the interface language; Italian entries added.
+ - **2026-10-12 (M13, CLI robustness scans):** `pdfcraft-cli check` visits a directory once even when input roots overlap or directory symlinks lead back into the tree. PDFs reached through file symlinks remain accepted. Three real CLI regressions cover overlapping roots, a directory cycle and directory/file aliases. Estimates unchanged.
+ - **2026-10-12 (M4, Type 3 extraction fidelity):** Extract and Split preserve shared image/resource dictionaries reached through Type 3 glyphs, including nested forms, patterns and soft masks. A bounded object-graph walk protects unknown glyph content; unreadable pages/forms retain their glyph resources, and shared explicit fonts are visited once. Separate page dictionaries still prune unused images. Synthetic save/reopen regressions and an opt-in Poppler pixel oracle cover resource ownership, nested forms, cycles, limits and repeated fonts. Estimates unchanged.
+ - **2026-10-12 (M2, TIFF predictor rows):** Packed RGB images using TIFF horizontal differencing keep every row when samples do not fill the last byte. The renderer aligns each decoded row before moving to the next. Synthetic decoding tests cover 1/2/4-bit samples, horizontal differencing and an 8-bit control; a red/green page-render regression verifies visible output. Estimates unchanged.
+diff --git a/apps/pdfcraft/Cargo.toml b/apps/pdfcraft/Cargo.toml
+index 4a185d1..e5879bc 100644
+--- a/apps/pdfcraft/Cargo.toml
++++ b/apps/pdfcraft/Cargo.toml
+@@ -29,6 +29,10 @@ log = { workspace = true }
+ # crate registers the handler (Objective-C interop needs unsafe, which our workspace forbids)
+ # behind a safe API. Same version as PhotoCraft. Pinned exactly: review the diff before bumping.
+ fmv-macos-events = "=0.1.0"
++# The standard application menu (About, Services, Hide, Quit) in the interface language
++# (src/mac_menu.rs): the vendored winit's `platform::macos::set_app_menu_titles` patch, a safe
++# function over the AppKit calls. Already in the tree through eframe.
++winit = { version = "0.30", default-features = false }
+ 
+ [target.'cfg(target_os = "linux")'.dependencies]
+ # Asks the Wayland compositor which GPU it draws with (linux-dmabuf feedback), so the window is
+diff --git a/apps/pdfcraft/src/mac_menu.rs b/apps/pdfcraft/src/mac_menu.rs
+new file mode 100644
+index 0000000..b0947d2
+--- /dev/null
++++ b/apps/pdfcraft/src/mac_menu.rs
+@@ -0,0 +1,89 @@
++//! The macOS application menu (the first menu in the menu bar: About, Services, Hide, Hide
++//! Others, Show All, Quit) in the interface language.
++//!
++//! AppKit builds that menu in English for apps without a nib (winit's default menu) and
++//! localises it only through a nib's strings, so it stayed English while the rest of PdfCraft
++//! changed language. The vendored winit's `set_app_menu_titles` patch retitles the items behind
++//! a safe function (AppKit calls need `unsafe`, which this workspace forbids); this module words
++//! the titles from the catalog and is told each language by [`PdfCraftApp::on_language`].
++//!
++//! [`PdfCraftApp::on_language`]: pdfcraft_ui_egui::PdfCraftApp::on_language
++
++use pdfcraft_ui_egui::i18n::{self, Lang};
++use winit::platform::macos::{AppMenuTitles, set_app_menu_titles};
++
++/// The six titles for `lang`, with `app` (the process name, as AppKit shows it) in place of
++/// `{app}`. A catalog without the entries gives the English titles AppKit itself would show.
++pub fn titles(lang: Lang, app: &str) -> AppMenuTitles {
++    let with_app = |key: &str| i18n::fmt(i18n::tr(lang, key), &[("app", app)]);
++    AppMenuTitles {
++        about: with_app("About {app}"),
++        services: i18n::tr(lang, "Services").to_string(),
++        hide: with_app("Hide {app}"),
++        hide_others: i18n::tr(lang, "Hide Others").to_string(),
++        show_all: i18n::tr(lang, "Show All").to_string(),
++        quit: with_app("Quit {app}"),
++    }
++}
++
++/// The name AppKit put in the menu: the executable's ("PdfCraft" in the bundle, "pdfcraft" under
++/// cargo), as `NSProcessInfo.processName` reads it.
++fn process_name() -> String {
++    std::env::current_exe()
++        .ok()
++        .and_then(|exe| exe.file_stem().map(|stem| stem.to_string_lossy().into_owned()))
++        .filter(|name| !name.is_empty())
++        .unwrap_or_else(|| "PdfCraft".to_string())
++}
++
++/// Relabel the menu for `lang`; the app calls it from its first frame and after every change of
++/// the preference. Returns whether the menu was there to relabel: winit builds it just before the
++/// first event, so a `false` (nothing retitled yet) makes the app ask again next frame.
++pub fn apply(lang: Lang) -> bool {
++    let relabeled = set_app_menu_titles(&titles(lang, &process_name()));
++    if relabeled == 0 {
++        log::debug!("application menu not relabeled yet for {}", lang.code());
++    }
++    relabeled > 0
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn italian_titles_come_from_the_catalog() {
++        let expected = AppMenuTitles {
++            about: "Informazioni su PdfCraft".to_string(),
++            services: "Servizi".to_string(),
++            hide: "Nascondi PdfCraft".to_string(),
++            hide_others: "Nascondi altre".to_string(),
++            show_all: "Mostra tutte".to_string(),
++            quit: "Esci da PdfCraft".to_string(),
++        };
++        assert_eq!(Lang::from_code("it").map(|lang| titles(lang, "PdfCraft")), Some(expected));
++    }
++
++    #[test]
++    fn english_titles_are_the_ones_appkit_shows() {
++        let expected = AppMenuTitles {
++            about: "About pdfcraft".to_string(),
++            services: "Services".to_string(),
++            hide: "Hide pdfcraft".to_string(),
++            hide_others: "Hide Others".to_string(),
++            show_all: "Show All".to_string(),
++            quit: "Quit pdfcraft".to_string(),
++        };
++        assert_eq!(titles(Lang::EN, "pdfcraft"), expected);
++    }
++
++    #[test]
++    fn a_language_without_the_entries_keeps_english() {
++        // Every catalog may add the six entries; until then the menu reads as AppKit built it.
++        for lang in Lang::all() {
++            let t = titles(lang, "PdfCraft");
++            assert!(!t.about.is_empty() && !t.quit.is_empty(), "{}", lang.code());
++            assert!(t.about.contains("PdfCraft") && t.hide.contains("PdfCraft") && t.quit.contains("PdfCraft"), "{}", lang.code());
++        }
++    }
++}
+diff --git a/apps/pdfcraft/src/main.rs b/apps/pdfcraft/src/main.rs
+index a1d2ad9..9c59025 100644
+--- a/apps/pdfcraft/src/main.rs
++++ b/apps/pdfcraft/src/main.rs
+@@ -34,6 +34,8 @@ mod apple_events;
+ mod compositor_gpu;
+ mod decorations;
+ mod logging;
++#[cfg(target_os = "macos")]
++mod mac_menu;
+ #[cfg(target_os = "windows")]
+ mod motion;
+ mod reopen;
+@@ -366,6 +368,9 @@ fn app_creator<'a>(
+         #[cfg(target_os = "macos")]
+         {
+             app.os_events = Some(apple_events.connect(&cc.egui_ctx));
++            // The application menu (About, Services, Hide, Quit) follows the interface language;
++            // AppKit builds it in English for apps without a nib.
++            app.on_language = Some(Box::new(mac_menu::apply));
+         }
+         if let Some(server) = instance {
+             app.os_events = Some(server.connect(&cc.egui_ctx));
+diff --git a/apps/pdfcraft/tests/winit_macos_app_menu.rs b/apps/pdfcraft/tests/winit_macos_app_menu.rs
+new file mode 100644
+index 0000000..6182908
+--- /dev/null
++++ b/apps/pdfcraft/tests/winit_macos_app_menu.rs
+@@ -0,0 +1,17 @@
++#[test]
++fn winit_carries_the_app_menu_titles_patch() {
++    // The relabeling itself needs AppKit on the main thread; `mac_menu`'s tests cover the titles.
++    // This guards PdfCraft's vendored copy, which workspace tests do not test itself.
++    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
++    let menu = std::fs::read_to_string(root.join("vendor/winit/src/platform_impl/macos/menu.rs")).unwrap();
++    assert!(menu.contains("pub(crate) fn relabel(titles: &AppMenuTitles) -> usize"));
++    for action in ["orderFrontStandardAboutPanel:", "hide:", "hideOtherApplications:", "unhideAllApplications:", "terminate:"] {
++        assert!(menu.contains(&format!("sel!({action})")), "{action}");
++    }
++    assert!(menu.contains("Retained::as_ptr(submenu) == Retained::as_ptr(services)"));
++    let platform = std::fs::read_to_string(root.join("vendor/winit/src/platform/macos.rs")).unwrap();
++    assert!(platform.contains("pub struct AppMenuTitles"));
++    assert!(platform.contains("pub fn set_app_menu_titles(titles: &AppMenuTitles) -> usize"));
++    let italian = std::fs::read_to_string(root.join("crates/ui-egui/src/i18n/it.tsv")).unwrap();
++    assert!(italian.contains("\tQuit {app}\tEsci da {app}"));
++}
+diff --git a/crates/ui-egui/src/i18n/it.tsv b/crates/ui-egui/src/i18n/it.tsv
+index 3575ab3..c8abb5c 100644
+--- a/crates/ui-egui/src/i18n/it.tsv
++++ b/crates/ui-egui/src/i18n/it.tsv
+@@ -2361,3 +2361,12 @@ animation effects	Off	Disattivati
+ 	This document is trying to open a local file:	Questo documento sta tentando di aprire un file locale:
+ 	Move tag earlier	Sposta tag prima
+ 	Move tag later	Sposta tag dopo
++
++# The macOS application menu (the first menu in the menu bar, which AppKit builds in English for
++# apps without a nib; apps/pdfcraft/src/mac_menu.rs). `{app}` is the process name.
++	About {app}	Informazioni su {app}
++	Services	Servizi
++	Hide {app}	Nascondi {app}
++	Hide Others	Nascondi altre
++	Show All	Mostra tutte
++	Quit {app}	Esci da {app}
+diff --git a/crates/ui-egui/src/i18n/lt.tsv b/crates/ui-egui/src/i18n/lt.tsv
+index ae61e39..9c72f0d 100644
+--- a/crates/ui-egui/src/i18n/lt.tsv
++++ b/crates/ui-egui/src/i18n/lt.tsv
+@@ -2596,3 +2596,11 @@ key	Space	Tarpas
+ 	This document is trying to open a local file:	Šis dokumentas bando atverti vietinį failą:
+ 	Move tag earlier	Perkelti žymą anksčiau
+ 	Move tag later	Perkelti žymą vėliau
++
++# The macOS application menu (apps/pdfcraft/src/mac_menu.rs); `{app}` is the process name.
++	About {app}	Apie „{app}“
++	Services	Paslaugos
++	Hide {app}	Slėpti „{app}“
++	Hide Others	Slėpti kitas
++	Show All	Rodyti visas
++	Quit {app}	Baigti „{app}“
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index ea3da00..1b64ead 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -394,6 +394,11 @@ pub type HostSaveFn = Box<dyn Fn(&str, &[u8], bool) -> Result<(), String>>;
+ /// Told every frame whether any tab has unsaved work, so a host page can warn before leaving.
+ pub type HostDirtyFn = Box<dyn FnMut(bool)>;
+ 
++/// Told the interface language when the app starts and whenever the preference changes, so the
++/// desktop app can relabel what egui does not draw (the macOS application menu).
++/// Returns whether it is done; `false` (what it relabels is not there yet) asks again next frame.
++pub type LanguageFn = Box<dyn FnMut(i18n::Lang) -> bool>;
++
+ pub struct PasswordPrompt {
+     pub name: String,
+     pub path: Option<String>,
+@@ -602,6 +607,10 @@ pub struct PdfCraftApp {
+     pub host_save: Option<HostSaveFn>,
+     /// Reports unsaved work to the embedding page (web, see [`HostDirtyFn`]).
+     pub host_dirty: Option<HostDirtyFn>,
++    /// Told the interface language at start and on every change (desktop, see [`LanguageFn`]).
++    pub on_language: Option<LanguageFn>,
++    /// The language `on_language` was last told, so it hears each change once.
++    applied_language: Option<i18n::Lang>,
+     /// A pending "save changes?" question (closing a dirty tab or quitting).
+     pub close_request: Option<CloseRequest>,
+     /// Save to this path instead of asking (tests and automation).
+@@ -935,6 +944,8 @@ impl PdfCraftApp {
+             os_events: None,
+             host_save: None,
+             host_dirty: None,
++            on_language: None,
++            applied_language: None,
+             close_request: None,
+             save_override: None,
+             props_draft: None,
+@@ -2297,6 +2308,18 @@ impl PdfCraftApp {
+     /// Apply a named view option (`--page 3`, `--panel bookmarks`, `--theme dark`, …).
+     ///
+     /// This is the seed of the UI control channel (M3.9): the same verbs become `ui.set` calls.
++    /// Tell `on_language` the interface language when it differs from the one it last heard:
++    /// once at start, then on every change of the preference (Preferences, `ui.set`, restore).
++    /// Without a listener the language counts as applied.
++    pub fn notify_language(&mut self, lang: i18n::Lang) {
++        if self.applied_language == Some(lang) {
++            return;
++        }
++        if self.on_language.as_mut().is_none_or(|f| f(lang)) {
++            self.applied_language = Some(lang);
++        }
++    }
++
+     pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), String> {
+         let view = self.active.and_then(|i| self.views.get_mut(i));
+         match (key, view) {
+@@ -2744,6 +2767,7 @@ impl eframe::App for PdfCraftApp {
+         // Notices raised outside `ui` (opened files, OS events, the control channel) translate too.
+         let lang = i18n::Lang::from_pref(&self.language);
+         i18n::set_current(lang);
++        self.notify_language(lang);
+         #[cfg(not(target_arch = "wasm32"))]
+         {
+             if let Some(worker) = &self.open_worker {
+diff --git a/crates/ui-egui/tests/language_hook.rs b/crates/ui-egui/tests/language_hook.rs
+new file mode 100644
+index 0000000..f7ca458
+--- /dev/null
++++ b/crates/ui-egui/tests/language_hook.rs
+@@ -0,0 +1,53 @@
++//! `PdfCraftApp::on_language`: the desktop app hears the interface language once at start and
++//! once per change (the macOS application menu follows it), and again next frame while it says
++//! it is not done.
++
++use std::cell::RefCell;
++use std::rc::Rc;
++
++use pdfcraft_ui_egui::PdfCraftApp;
++use pdfcraft_ui_egui::i18n::Lang;
++
++fn app_with_listener(done: bool) -> (PdfCraftApp, Rc<RefCell<Vec<&'static str>>>) {
++    let heard = Rc::new(RefCell::new(Vec::new()));
++    let mut app = PdfCraftApp::new();
++    let sink = Rc::clone(&heard);
++    app.on_language = Some(Box::new(move |lang| {
++        sink.borrow_mut().push(lang.code());
++        done
++    }));
++    (app, heard)
++}
++
++#[test]
++fn the_listener_hears_each_language_once() {
++    let (mut app, heard) = app_with_listener(true);
++    app.set_option("language", "en").unwrap();
++    let en = Lang::from_pref(&app.language);
++    app.notify_language(en);
++    app.notify_language(en);
++    assert_eq!(*heard.borrow(), vec!["en"]);
++    app.set_option("language", "it").unwrap();
++    let it = Lang::from_pref(&app.language);
++    app.notify_language(it);
++    app.notify_language(it);
++    app.notify_language(en);
++    assert_eq!(*heard.borrow(), vec!["en", "it", "en"]);
++}
++
++#[test]
++fn a_listener_that_is_not_done_is_asked_again() {
++    let (mut app, heard) = app_with_listener(false);
++    app.set_option("language", "it").unwrap();
++    let it = Lang::from_pref(&app.language);
++    app.notify_language(it);
++    app.notify_language(it);
++    assert_eq!(*heard.borrow(), vec!["it", "it"]);
++}
++
++#[test]
++fn without_a_listener_nothing_happens() {
++    let mut app = PdfCraftApp::new();
++    app.set_option("language", "it").unwrap();
++    app.notify_language(Lang::from_pref(&app.language));
++}
+diff --git a/docs/localization.md b/docs/localization.md
+index 05240ca..09e3146 100644
+--- a/docs/localization.md
++++ b/docs/localization.md
+@@ -14,6 +14,8 @@ The control channel exposes the setting through `ui.set`:
+ 
+ The value is `auto` or a language code (`en`, `ja`, `zh-hans`, `zh-hant`, `cs`, `pt-br`, `de`, `es`, `fr`, `ru`, `kk`, `bg`, `te`, `hu`, `uk`, `it`, `ar`, `pl`, `sl`, `el`, `tr`, `lt`), in any case. `ui.state` reports `language` as written in the preferences (`auto`, `en`, `ja`, `zh-hans`, `zh-hant`, `cs`, `pt-br`, `de`, `es`, `fr`, `ru`, `kk`, `bg`, `te`, `hu`, `uk`, `it`, `ar`, `pl`, `sl`, `el`, `tr` or `lt`). Unknown values return an error without changing the current setting. Preferences saved before this setting existed follow the system language.
+ 
++On macOS the application menu in the menu bar (About, Services, Hide, Hide Others, Show All, Quit), which AppKit builds in English for apps without a nib, follows the interface language too (`apps/pdfcraft/src/mac_menu.rs`, through the vendored winit's `set_app_menu_titles`); a catalog without those six entries keeps it in English. The menu bar's own title stays the process name.
++
+ Dialogs, panels, menus, notices and history labels go through the catalog (`tl!`). Japanese, Traditional Chinese, Simplified Chinese, Russian, Bulgarian, German, Spanish, French, Telugu, Hungarian, Ukrainian, Italian, Brazilian Portuguese and Arabic translate them (about 2,000–2,140 entries each); Czech and Turkish cover the menus so far. Untranslated labels use English. Error details that come from the engine or the operating system are shown as they are, inside a translated frame ("操作「…」に失敗しました: …"). The command palette matches the translated label, the English label and the command id. Vertical Japanese PDF rendering is an existing viewer feature; this change does not add vertical text editing. Per-language coverage, script support and what each language still needs are in [localization-parity.md](localization-parity.md).
+ Dialogs, panels, menus, notices and history labels go through the catalog (`tl!`). Japanese, Traditional Chinese, Simplified Chinese, Russian, Bulgarian, German, Spanish, French, Telugu, Hungarian, Ukrainian, Italian, Brazilian Portuguese, Arabic and Slovenian translate them (about 2,000–2,190 entries each); Czech covers the menus so far. Untranslated labels use English. Error details that come from the engine or the operating system are shown as they are, inside a translated frame ("操作「…」に失敗しました: …"). The command palette matches the translated label, the English label and the command id. Vertical Japanese PDF rendering is an existing viewer feature; this change does not add vertical text editing. Per-language coverage, script support and what each language still needs are in [localization-parity.md](localization-parity.md).
+ 
+diff --git a/vendor/README.md b/vendor/README.md
+index c433193..2302142 100644
+--- a/vendor/README.md
++++ b/vendor/README.md
+@@ -20,7 +20,7 @@ the fix. Vendoring copyleft code is never allowed (plan/adr/0001).
+ | hayro-syntax | 0.7.2 | Apache-2.0 OR MIT | (1) Page-tree cycle guard in `resolve_pages` (visited set + depth cap): a `/Kids` loop among compressed objects overflowed the stack and aborted the process; (2) `ccitt_size_ok`: CCITT images wider than 2^20 columns or over 2^28 pixels are not decoded (a fuzzed `/Columns 4294967295` allocated 4 GiB); (3) Flate/LZW predictor row widths are saturating `usize`, a zero width is refused and a row longer than the data is not allocated (a fuzzed `/Columns 9223372036854775807` wrapped to a 2^61-byte allocation and aborted); (4) the inline-image end-of-data check (`EI`) doesn't nest inside its own look-ahead and examines at most 256 candidates and steps (50 images with "EI" in their data ran for over ten minutes); (5) a stream whose `/Length` is wrong is recovered only when `stream` is the next token — scanning ahead to a later object's `stream` made an indirect appearance-state dictionary (Quartz checkboxes: `/AP /N` → `<< /Yes … /Off … >>`) render as a non-form, so the widget was skipped; (6) JPX rescaling uses an exact integer sample range for 1–32-bit components (32 shifted past u32, and floating-point maxima at 25–31 bits wrapped to zero), and refuses zero-sized rows; (7) `decode_limit`: Flate (through flate2 and the fallback inflater), LZW and RunLength never write past `MAX_DECODED_STREAM` (256 MiB), or, for the last filter of an image of known size, past twice its pixel bytes (a predictor tag byte per byte), at most 1 GiB; `Stream::decoded_within` for budgeted callers; a page's `/Contents` array shares one `MAX_DECODED_STREAM` (a 2 MB page whose content stream or 8 × 8 image inflated to 2 GB took the renderer past 3 GB in under a second; naming the stream twenty times in `/Contents`, 5 GB); (8) high-precision numbers (jsPDF MediaBox coordinates with over 19 digits) parse without overflowing the u64 mantissa: fractional digits past it are dropped, integer digits past it scale the value (a real, kept finite); (9) large dictionary indexes are built on first use and shared across repeated reads within each PDF (#307); the validated-byte cache is bounded, reader contexts remain separate, repairs and inline/content dictionaries bypass sharing, and small dictionaries stay eager; (10) decoded object-stream slots publish once under contention, cold loading rejects recursive dependencies, and xref repair serializes without holding recursive read guards; this permits one parser per native render pool with private worker caches; (11) `sync.rs`: a poisoned lock is recovered instead of unwrapped (a worker panic no longer cascades into every reader of the same PDF), and xref repair takes a blocking write lock instead of asserting a non-blocking one; (12) `SegmentList` (`util.rs`) returns `None` for an out-of-range index instead of panicking; (13) a page's `/UserUnit` scales `render_dimensions` and `initial_transform`, so the page and everything on it are sized in points, as Acrobat shows them; it is read as Acrobat reads it (the page's own entry, not inherited; a number from 1 up, at most 75,000; anything else counts as 1), and a page without it keeps exactly the transform it had | (1) `cos/tests/writer.rs::page_tree_loops_in_object_streams_do_not_crash_readers`; (2) `raster::tests::absurd_mask_and_fax_sizes_are_refused_before_decoding`; (3) `raster::tests::absurd_predictor_columns_and_line_widths_render`; (4) `raster::tests::inline_images_with_ei_in_their_data_parse_in_linear_time`; (5) `raster::tests::indirect_appearance_state_dict_is_not_another_stream`; (6) `raster::tests::jpx_stream_bit_depth_boundaries_do_not_panic`, `raster::tests::jpx_32_bit_image_does_not_prevent_other_page_content_from_rendering`, `raster::tests::jpx_gray_rgb_and_alpha_keep_eight_bit_samples`, `raster::tests::jpx_streams_reject_out_of_range_bit_depths`; (7) `raster::tests::decompression_bombs_stop_at_the_stream_limit`, `raster::tests::page_contents_and_nested_forms_share_one_budget`; (8) `inspect::tests::jspdf_high_precision_mediabox_does_not_overflow_dimensions`, `object::number::tests::high_precision_float_does_not_overflow_mantissa` (hayro-syntax); (9) `object::dict::lazy_index_tests`, `raster::tests::large_resource_indexes_preserve_pixels_and_text`; (10) `data::tests`, `xref::tests::concurrent_cold_object_stream_reads_all_succeed`, `raster::tests::shared_parser_is_lazy_and_initializes_once_under_contention`; (11) `data::tests::panicking_initializer_wakes_waiters_and_prevents_retries`, `xref::tests::concurrent_cold_object_stream_reads_all_succeed`; (12) `util::tests::segment_list_rejects_out_of_range_indices`; (13) `raster::tests::user_unit_scales_the_page_and_everything_on_it` |
+ | lopdf | 0.45.0 | MIT | (1) PNG predictor rows longer than the data are refused before their buffers are allocated (a fuzzed `/Columns 4294967295` allocated two 4 GiB rows), and empty frames return without row buffers; (2) predictor row widths use saturating arithmetic or reject overflow; (3) sub-byte TIFF Predictor 2 scratch is bounded by the samples present in the input instead of the declared `/Colors`, aligned with [lopdf#589](https://github.com/J-F-Liu/lopdf/pull/589) | (1) `inspect::tests::png_predictor_rows_longer_than_the_data_are_refused_before_allocating`, `inspect::tests::empty_png_predictor_frames_do_not_allocate_rows`; (2) `inspect::tests::tiff_subbyte_predictor_row_width_overflow_is_refused`; (3) `inspect::tests::tiff_subbyte_predictor_scratch_is_bounded_by_available_samples`, `inspect::tests::tiff_subbyte_predictors_keep_components_rows_and_padding` |
+ | hayro-syntax | 0.7.2 | Apache-2.0 OR MIT | (1) Page-tree cycle guard in `resolve_pages` (visited set + depth cap): a `/Kids` loop among compressed objects overflowed the stack and aborted the process; (2) `ccitt_size_ok`: CCITT images wider than 2^20 columns or over 2^28 pixels are not decoded (a fuzzed `/Columns 4294967295` allocated 4 GiB); (3) Flate/LZW predictor row widths are saturating `usize`, a zero width is refused and a row longer than the data is not allocated (a fuzzed `/Columns 9223372036854775807` wrapped to a 2^61-byte allocation and aborted); (4) the inline-image end-of-data check (`EI`) doesn't nest inside its own look-ahead and examines at most 256 candidates and steps (50 images with "EI" in their data ran for over ten minutes); (5) a stream whose `/Length` is wrong is recovered only when `stream` is the next token — scanning ahead to a later object's `stream` made an indirect appearance-state dictionary (Quartz checkboxes: `/AP /N` → `<< /Yes … /Off … >>`) render as a non-form, so the widget was skipped; (6) JPX rescaling uses an exact integer sample range for 1–32-bit components (32 shifted past u32, and floating-point maxima at 25–31 bits wrapped to zero), and refuses zero-sized rows; (7) `decode_limit`: Flate (through flate2 and the fallback inflater), LZW and RunLength never write past `MAX_DECODED_STREAM` (256 MiB), or, for the last filter of an image of known size, past twice its pixel bytes (a predictor tag byte per byte), at most 1 GiB; `Stream::decoded_within` for budgeted callers; a page's `/Contents` array shares one `MAX_DECODED_STREAM` (a 2 MB page whose content stream or 8 × 8 image inflated to 2 GB took the renderer past 3 GB in under a second; naming the stream twenty times in `/Contents`, 5 GB); (8) high-precision numbers (jsPDF MediaBox coordinates with over 19 digits) parse without overflowing the u64 mantissa: fractional digits past it are dropped, integer digits past it scale the value (a real, kept finite); (9) large dictionary indexes are built on first use and shared across repeated reads within each PDF (#307); the validated-byte cache is bounded, reader contexts remain separate, repairs and inline/content dictionaries bypass sharing, and small dictionaries stay eager; (10) decoded object-stream slots publish once under contention, cold loading rejects recursive dependencies, and xref repair serializes without holding recursive read guards; this permits one parser per native render pool with private worker caches; (11) `sync.rs`: a poisoned lock is recovered instead of unwrapped (a worker panic no longer cascades into every reader of the same PDF), and xref repair takes a blocking write lock instead of asserting a non-blocking one; (12) `SegmentList` (`util.rs`) returns `None` for an out-of-range index instead of panicking; (13) a page's `/UserUnit` scales `render_dimensions` and `initial_transform`, so the page and everything on it are sized in points, as Acrobat shows them; it is read as Acrobat reads it (the page's own entry, not inherited; a number from 1 up, at most 75,000; anything else counts as 1), and a page without it keeps exactly the transform it had; (14) direct arrays and dictionaries share a reader-local nesting cap of 128, counted while skipping and while parsing a dictionary (its lenient repair reads, rather than skips, an object found where a key belongs, so `<< << …` recursed through that read); deeper objects return `None` instead of overflowing the stack (including unused trailer values, trailer entries, content operands and marked-content properties); a chain of 65 direct stitching functions now stops at this cap, before the 64-function guard | (1) `cos/tests/writer.rs::page_tree_loops_in_object_streams_do_not_crash_readers`; (2) `raster::tests::absurd_mask_and_fax_sizes_are_refused_before_decoding`; (3) `raster::tests::absurd_predictor_columns_and_line_widths_render`; (4) `raster::tests::inline_images_with_ei_in_their_data_parse_in_linear_time`; (5) `raster::tests::indirect_appearance_state_dict_is_not_another_stream`; (6) `raster::tests::jpx_stream_bit_depth_boundaries_do_not_panic`, `raster::tests::jpx_32_bit_image_does_not_prevent_other_page_content_from_rendering`, `raster::tests::jpx_gray_rgb_and_alpha_keep_eight_bit_samples`, `raster::tests::jpx_streams_reject_out_of_range_bit_depths`; (7) `raster::tests::decompression_bombs_stop_at_the_stream_limit`, `raster::tests::page_contents_and_nested_forms_share_one_budget`; (8) `inspect::tests::jspdf_high_precision_mediabox_does_not_overflow_dimensions`, `object::number::tests::high_precision_float_does_not_overflow_mantissa` (hayro-syntax); (9) `object::dict::lazy_index_tests`, `raster::tests::large_resource_indexes_preserve_pixels_and_text`; (10) `data::tests`, `xref::tests::concurrent_cold_object_stream_reads_all_succeed`, `raster::tests::shared_parser_is_lazy_and_initializes_once_under_contention`; (11) `data::tests::panicking_initializer_wakes_waiters_and_prevents_retries`, `xref::tests::concurrent_cold_object_stream_reads_all_succeed`; (12) `util::tests::segment_list_rejects_out_of_range_indices`; (13) `raster::tests::user_unit_scales_the_page_and_everything_on_it`; (14) `raster::tests::deeply_nested_direct_objects_do_not_overflow_the_stack`, `raster::tests::dictionaries_nested_without_keys_in_content_do_not_overflow_the_stack`, `raster::tests::dictionaries_nested_without_keys_in_the_trailer_do_not_overflow_the_stack`, `raster::tests::dictionaries_nested_without_keys_as_marked_content_properties_do_not_overflow_the_stack`, `raster::tests::dictionaries_nested_without_keys_are_read_up_to_the_nesting_cap`, `raster::tests::nesting_at_the_cap_fits_a_512_kib_stack` (native only), `raster::tests::function_limits_depth_guard_refuses_a_chain_of_references` |
+-| winit | 0.30.13 | Apache-2.0 | (1) on Windows 11 (build 22000 and later), `WM_DPICHANGED` applies the rect Windows suggests. It used to nudge the window onto the monitor `MonitorFromWindow` names, which during a drag is still the monitor being left; the nudge sent another `WM_DPICHANGED`, so a window dragged to a monitor with another scale factor grew and stayed on the wrong monitor at the wrong scale (#324). Backport of winit master 488c036a ([winit#4341](https://github.com/rust-windowing/winit/pull/4341)), which no 0.30 release has; Windows 10 keeps the old adjustment, as on winit master. (2) on Wayland, a seat's text input is destroyed when the seat goes away, not whenever it loses a capability: losing any capability (a touch screen or tablet unplugged, a remote-desktop session ending) destroyed it, and only an added capability recreated it, so IME stopped working until restart. Port of [winit#4747](https://github.com/rust-windowing/winit/pull/4747); (3) on Windows, an IME composition reports its cursor from `GCS_CURSORPOS` only when `WM_IME_COMPOSITION` says it is set, and at the end of the composition otherwise: the Microsoft Korean IME never sets it, so the cursor read as 0 (egui then drew no caret while composing; it now draws it after the syllable). Port of [winit#4746](https://github.com/rust-windowing/winit/pull/4746); (4) on Windows, a hidden window is not maximized until it is shown, and a hidden window shown while maximized gets one `ShowWindow(SW_MAXIMIZE)`: `SW_MAXIMIZE` shows a hidden window, so PdfCraft, which eframe keeps hidden until its first frame is drawn, appeared unpainted (white) when it restored a maximized window, and could lose its focus. Port of [winit#4587](https://github.com/rust-windowing/winit/pull/4587) (the later, focus-safe form of [winit#4575](https://github.com/rust-windowing/winit/pull/4575)); (5) on X11, when allowing or disallowing IME replaces the focused window's input context (egui does it each time a text field gains or loses focus), the new context is focused: no focus event follows, so it stayed unfocused until the window lost and regained focus. Port of [winit#4727](https://github.com/rust-windowing/winit/pull/4727); (6) on macOS, `insertText` commits through IME when a composition was started (`pending_commit`, set by `setMarkedText`) rather than when marked text is left: input methods that end a composition with `unmarkText` before `insertText` lost the text, and Apple Korean dropped the key typed after a syllable (`한` then `5` or `;`); other `insertText` calls stay `KeyboardInput`; a commit outside a key press (a candidate clicked with the mouse, dictation) clears the marked text and leaves no key to swallow, as in [winit#4748](https://github.com/rust-windowing/winit/pull/4748) (without it the next key, such as Backspace, was lost). `validAttributesForMarkedText` lists the underline and marked-clause attributes, without which some input methods don't compose. Port of [winit#4650](https://github.com/rust-windowing/winit/pull/4650), the 0.30 backport of [winit#4651](https://github.com/rust-windowing/winit/pull/4651) (merged on winit master), with the underline attribute spelled as AppKit's `NSUnderlineStyleAttributeName` (`NSUnderline`); (7) on macOS, disallowing IME with a composition in progress (focus leaving a text field) tells the input method to discard its marked text (`discardMarkedText`): it kept composing it once IME was allowed again, so the abandoned syllable came back (`하`, then `가` typed in the next field, became `학`, then `하` + `가`; Japanese `か` then `さ` became `傘`). Port of [winit#4745](https://github.com/rust-windowing/winit/pull/4745); (8) on macOS, text inserted outside a key press without a composition (the emoji picker) is reported as `Ime::Commit`; it was dropped. Port of the emoji-picker part of [winit#4749](https://github.com/rust-windowing/winit/pull/4749) (0.30 backport of [winit#4748](https://github.com/rust-windowing/winit/pull/4748)); its `selectedRange` change for dictation is left out because it switches on press-and-hold for every held key (an accent menu instead of key repeat, and the chosen accent added after the repeated letters); (9) on macOS, a key whose text was committed through IME isn't also sent as `KeyboardInput` unless AppKit forwards it as a command (Enter): Apple Korean answers Space with no syllable in progress with `setMarkedText(" ")`, `insertText(" ")`, `setMarkedText("")`, and the last call reset winit's state, so the space arrived twice. Same goal as [winit#4478](https://github.com/rust-windowing/winit/pull/4478), whose changes don't reach this call order (macOS 14); to be proposed upstream there; (10) on macOS, when the first key in a fresh app reaches Apple Korean's `insertText` as a raw compatibility jamo instead of starting a composition, that key is interpreted once more, synchronously, before it is sent as `KeyboardInput` (g k s typed ㅎㅏㄴ instead of 한); only an unmodified, non-repeated first key whose one callback inserts that same jamo, with IME enabled and nothing composed, focus and input source unchanged, is retried (`ime_startup.rs`). Port of [winit#4744](https://github.com/rust-windowing/winit/pull/4744), with its policy tests.; (11) on X11 without `Xft.dpi`, the scale factor comes from the X screen's configured DPI (its size in pixels and millimetres) before the output's physical density from RandR: Xorg can deliberately run a dense panel at 96 DPI, and only winit applications then looked zoomed; `Xft.dpi` still wins, `WINIT_X11_SCALE_FACTOR` still overrides, and a screen reporting no size keeps the RandR fallback. PdfCraft patch (#1150, replacing the launcher pin proposed in #908). The published crate's asset files (`docs/res/*.svg`, `examples/data/*.png`) are left out, so its `window` example doesn't build | (1) `pdfcraft` `tests::winit_carries_the_windows_11_monitor_scale_fix` keeps the patch in the build; the drag itself needs two monitors with different scale factors on Windows 11; (2) `pdfcraft` `tests/winit_wayland_text_input.rs`; the capability change itself needs a Wayland session and an input method; (3) `pdfcraft` `tests/winit_windows_ime_cursor.rs`; composing itself needs the Microsoft Korean IME; (4) `pdfcraft` `tests/winit_windows_hidden_maximized.rs`; the start-up itself needs Windows and a window that was closed maximized; (5) `pdfcraft` `tests/winit_x11_ime_focus.rs`; switching fields itself needs an X11 session and an input method (IBus, fcitx5); (6) `pdfcraft` `tests/winit_macos_ime_commit.rs`; composing itself needs macOS and an input method; (7) `pdfcraft` `tests/winit_macos_ime_discard.rs`; composing itself needs macOS and an input method; (8) `pdfcraft` `tests/winit_macos_emoji_picker.rs`; the picker itself needs macOS; (9) `pdfcraft` `tests/winit_macos_korean_space.rs`; composing itself needs macOS and Apple Korean; (10) `pdfcraft` `tests/winit_macos_korean_first_key.rs` and `ime_startup.rs`'s own tests (run them with `rustc --test`); typing itself needs macOS and Apple Korean; (11) `pdfcraft` `tests/winit_x11_dpi.rs` keeps the patch in the build, and `util::randr` tests the policy (run them in the vendored crate); the scale itself needs an X11 session |
++| winit | 0.30.13 | Apache-2.0 | (1) on Windows 11 (build 22000 and later), `WM_DPICHANGED` applies the rect Windows suggests. It used to nudge the window onto the monitor `MonitorFromWindow` names, which during a drag is still the monitor being left; the nudge sent another `WM_DPICHANGED`, so a window dragged to a monitor with another scale factor grew and stayed on the wrong monitor at the wrong scale (#324). Backport of winit master 488c036a ([winit#4341](https://github.com/rust-windowing/winit/pull/4341)), which no 0.30 release has; Windows 10 keeps the old adjustment, as on winit master. (2) on Wayland, a seat's text input is destroyed when the seat goes away, not whenever it loses a capability: losing any capability (a touch screen or tablet unplugged, a remote-desktop session ending) destroyed it, and only an added capability recreated it, so IME stopped working until restart. Port of [winit#4747](https://github.com/rust-windowing/winit/pull/4747); (3) on Windows, an IME composition reports its cursor from `GCS_CURSORPOS` only when `WM_IME_COMPOSITION` says it is set, and at the end of the composition otherwise: the Microsoft Korean IME never sets it, so the cursor read as 0 (egui then drew no caret while composing; it now draws it after the syllable). Port of [winit#4746](https://github.com/rust-windowing/winit/pull/4746); (4) on Windows, a hidden window is not maximized until it is shown, and a hidden window shown while maximized gets one `ShowWindow(SW_MAXIMIZE)`: `SW_MAXIMIZE` shows a hidden window, so PdfCraft, which eframe keeps hidden until its first frame is drawn, appeared unpainted (white) when it restored a maximized window, and could lose its focus. Port of [winit#4587](https://github.com/rust-windowing/winit/pull/4587) (the later, focus-safe form of [winit#4575](https://github.com/rust-windowing/winit/pull/4575)); (5) on X11, when allowing or disallowing IME replaces the focused window's input context (egui does it each time a text field gains or loses focus), the new context is focused: no focus event follows, so it stayed unfocused until the window lost and regained focus. Port of [winit#4727](https://github.com/rust-windowing/winit/pull/4727); (6) on macOS, `insertText` commits through IME when a composition was started (`pending_commit`, set by `setMarkedText`) rather than when marked text is left: input methods that end a composition with `unmarkText` before `insertText` lost the text, and Apple Korean dropped the key typed after a syllable (`한` then `5` or `;`); other `insertText` calls stay `KeyboardInput`; a commit outside a key press (a candidate clicked with the mouse, dictation) clears the marked text and leaves no key to swallow, as in [winit#4748](https://github.com/rust-windowing/winit/pull/4748) (without it the next key, such as Backspace, was lost). `validAttributesForMarkedText` lists the underline and marked-clause attributes, without which some input methods don't compose. Port of [winit#4650](https://github.com/rust-windowing/winit/pull/4650), the 0.30 backport of [winit#4651](https://github.com/rust-windowing/winit/pull/4651) (merged on winit master), with the underline attribute spelled as AppKit's `NSUnderlineStyleAttributeName` (`NSUnderline`); (7) on macOS, disallowing IME with a composition in progress (focus leaving a text field) tells the input method to discard its marked text (`discardMarkedText`): it kept composing it once IME was allowed again, so the abandoned syllable came back (`하`, then `가` typed in the next field, became `학`, then `하` + `가`; Japanese `か` then `さ` became `傘`). Port of [winit#4745](https://github.com/rust-windowing/winit/pull/4745); (8) on macOS, text inserted outside a key press without a composition (the emoji picker) is reported as `Ime::Commit`; it was dropped. Port of the emoji-picker part of [winit#4749](https://github.com/rust-windowing/winit/pull/4749) (0.30 backport of [winit#4748](https://github.com/rust-windowing/winit/pull/4748)); its `selectedRange` change for dictation is left out because it switches on press-and-hold for every held key (an accent menu instead of key repeat, and the chosen accent added after the repeated letters); (9) on macOS, a key whose text was committed through IME isn't also sent as `KeyboardInput` unless AppKit forwards it as a command (Enter): Apple Korean answers Space with no syllable in progress with `setMarkedText(" ")`, `insertText(" ")`, `setMarkedText("")`, and the last call reset winit's state, so the space arrived twice. Same goal as [winit#4478](https://github.com/rust-windowing/winit/pull/4478), whose changes don't reach this call order (macOS 14); to be proposed upstream there; (10) on macOS, when the first key in a fresh app reaches Apple Korean's `insertText` as a raw compatibility jamo instead of starting a composition, that key is interpreted once more, synchronously, before it is sent as `KeyboardInput` (g k s typed ㅎㅏㄴ instead of 한); only an unmodified, non-repeated first key whose one callback inserts that same jamo, with IME enabled and nothing composed, focus and input source unchanged, is retried (`ime_startup.rs`). Port of [winit#4744](https://github.com/rust-windowing/winit/pull/4744), with its policy tests.; (11) on X11 without `Xft.dpi`, the scale factor comes from the X screen's configured DPI (its size in pixels and millimetres) before the output's physical density from RandR: Xorg can deliberately run a dense panel at 96 DPI, and only winit applications then looked zoomed; `Xft.dpi` still wins, `WINIT_X11_SCALE_FACTOR` still overrides, and a screen reporting no size keeps the RandR fallback. PdfCraft patch (#1150, replacing the launcher pin proposed in #908). The published crate's asset files (`docs/res/*.svg`, `examples/data/*.png`) are left out, so its `window` example doesn't build (12) on macOS, `platform::macos::set_app_menu_titles` retitles the standard application menu winit builds (About, Services, Hide, Hide Others, Show All, Quit), finding each item by its action and the Services item by its submenu, so PdfCraft can show them in its interface language; AppKit localises that menu only for apps with a nib | (1) `pdfcraft` `tests::winit_carries_the_windows_11_monitor_scale_fix` keeps the patch in the build; the drag itself needs two monitors with different scale factors on Windows 11; (2) `pdfcraft` `tests/winit_wayland_text_input.rs`; the capability change itself needs a Wayland session and an input method; (3) `pdfcraft` `tests/winit_windows_ime_cursor.rs`; composing itself needs the Microsoft Korean IME; (4) `pdfcraft` `tests/winit_windows_hidden_maximized.rs`; the start-up itself needs Windows and a window that was closed maximized; (5) `pdfcraft` `tests/winit_x11_ime_focus.rs`; switching fields itself needs an X11 session and an input method (IBus, fcitx5); (6) `pdfcraft` `tests/winit_macos_ime_commit.rs`; composing itself needs macOS and an input method; (7) `pdfcraft` `tests/winit_macos_ime_discard.rs`; composing itself needs macOS and an input method; (8) `pdfcraft` `tests/winit_macos_emoji_picker.rs`; the picker itself needs macOS; (9) `pdfcraft` `tests/winit_macos_korean_space.rs`; composing itself needs macOS and Apple Korean; (10) `pdfcraft` `tests/winit_macos_korean_first_key.rs` and `ime_startup.rs`'s own tests (run them with `rustc --test`); typing itself needs macOS and Apple Korean; (11) `pdfcraft` `tests/winit_x11_dpi.rs` keeps the patch in the build, and `util::randr` tests the policy (run them in the vendored crate); the scale itself needs an X11 session; (12) `pdfcraft` `tests/winit_macos_app_menu.rs` keeps the patch in the build, and `mac_menu`'s own tests cover the titles per language; the menu itself needs macOS |
+ | egui-wgpu | 0.36.2 | MIT OR Apache-2.0 | (1) `winit::surface_fit`: a window's surface is configured within the device's `max_texture_dimension_2d`, both sides shrunk by one factor that egui then draws at (`pixels_per_point × render_scale`), so the whole window is drawn into the surface (on DX12 it is stretched over the window and lines up with the pointer; wgpu's GL backend copies it unscaled into a corner); the longer side becomes exactly the limit; the depth and MSAA textures follow, and a recreated surface starts again from the window's own size. egui-wgpu configured the window's size as is, and `Surface::configure` panics beyond the limit: a window restored at another monitor's scale (opening an Outlook attachment on a mixed-DPI laptop asked an 8192-pixel device for 8600 × 3423, #577) or stretched across monitors closed PdfCraft, before its window appeared when it happened at start-up ([emilk/egui#8361](https://github.com/emilk/egui/issues/8361)). The published crate leaves out egui's licence files; `LICENSE-APACHE` and `LICENSE-MIT` are from the 0.36.2 tag; (2) `winit::catch_errors`: a new window's surface is configured inside wgpu error scopes (validation, out of memory, internal), and a failure is returned as `WgpuError::ConfigureSurface` (for the root window at start-up eframe returns it as `Error::Wgpu`, which PdfCraft retries with OpenGL); nothing is kept for the window. wgpu's default handler panicked instead, and eframe configures the root surface before the app is created, so a driver that can't configure one closed PdfCraft at launch (a 2015 Intel GPU through wgpu's GL backend timed out waiting for the GPU to go idle, `GpuWaitTimeout`, #519). Unchanged, so still a panic: an error in a later reconfigure (resize, a lost surface), a device lost during the first configure (wgpu reports it only to a callback), and a window shown at zero size (first configured on resize) | (1) `pdfcraft` `tests::a_window_larger_than_the_gpu_limit_gets_a_surface_within_it`, `tests::surface_fit_never_empties_or_overflows_a_surface`, and `tests::egui_wgpu_carries_the_surface_size_fit`, which keeps the patch in the build and in the paths that size a surface; (2) `pdfcraft` `tests::a_gpu_error_while_a_window_is_set_up_is_returned_not_a_panic` (a real device: an error inside `catch_errors` is returned, not a panic) and `tests::egui_wgpu_returns_a_surface_it_cannot_configure_as_an_error`, which keeps it around `add_surface`'s configure |
+ 
+ Renderer startup errors: `egui-wgpu::RenderState::create` also wraps `Renderer::new` in
+diff --git a/vendor/winit/src/platform/macos.rs b/vendor/winit/src/platform/macos.rs
+index 30623b0..bc2e4eb 100644
+--- a/vendor/winit/src/platform/macos.rs
++++ b/vendor/winit/src/platform/macos.rs
+@@ -476,6 +476,36 @@ impl MonitorHandleExtMacOS for MonitorHandle {
+     }
+ }
+ 
++/// PdfCraft patch: the titles of the standard application menu winit builds when
++/// `with_default_menu` is on, so an application can show them in its interface language (AppKit
++/// localises them only for apps with a nib). Each field is the whole title ("Hide PdfCraft"); an
++/// empty one leaves that item as it is.
++#[derive(Debug, Clone, Default, PartialEq, Eq)]
++pub struct AppMenuTitles {
++    /// The "About <app>" item.
++    pub about: String,
++    /// The "Services" submenu.
++    pub services: String,
++    /// The "Hide <app>" item.
++    pub hide: String,
++    /// The "Hide Others" item.
++    pub hide_others: String,
++    /// The "Show All" item.
++    pub show_all: String,
++    /// The "Quit <app>" item.
++    pub quit: String,
++}
++
++/// PdfCraft patch: retitle the standard application menu. The items are found by their actions
++/// (`orderFrontStandardAboutPanel:`, `hide:`, `hideOtherApplications:`, `unhideAllApplications:`,
++/// `terminate:`) and the Services item by its submenu, so a main menu the application replaced
++/// is left alone. Call it on the main thread once the event loop runs (the menu is built just
++/// before the first `NewEvents`); it returns how many items were retitled, 0 off the main thread
++/// or before the menu exists. Safe to call again whenever the language changes.
++pub fn set_app_menu_titles(titles: &AppMenuTitles) -> usize {
++    crate::platform_impl::menu::relabel(titles)
++}
++
+ /// Additional methods on [`ActiveEventLoop`] that are specific to macOS.
+ pub trait ActiveEventLoopExtMacOS {
+     /// Hide the entire application. In most applications this is typically triggered with
+diff --git a/vendor/winit/src/platform_impl/macos/menu.rs b/vendor/winit/src/platform_impl/macos/menu.rs
+index cdebea0..94e2e97 100644
+--- a/vendor/winit/src/platform_impl/macos/menu.rs
++++ b/vendor/winit/src/platform_impl/macos/menu.rs
+@@ -4,6 +4,8 @@ use objc2::sel;
+ use objc2_app_kit::{NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
+ use objc2_foundation::{ns_string, MainThreadMarker, NSProcessInfo, NSString};
+ 
++use crate::platform::macos::AppMenuTitles;
++
+ struct KeyEquivalent<'a> {
+     key: &'a NSString,
+     masks: Option<NSEventModifierFlags>,
+@@ -86,6 +88,50 @@ pub fn initialize(app: &NSApplication) {
+     app.setMainMenu(Some(&menubar));
+ }
+ 
++// PdfCraft patch: retitle the standard application menu built by `initialize` (see
++// `platform::macos::set_app_menu_titles`). Each item is found by its action, the Services item by
++// its submenu, so the order of the items does not matter; a main menu the app replaced is left
++// alone, as is an item whose new title is empty.
++pub(crate) fn relabel(titles: &AppMenuTitles) -> usize {
++    let Some(mtm) = MainThreadMarker::new() else {
++        return 0;
++    };
++    let app = NSApplication::sharedApplication(mtm);
++    // SAFETY: AppKit calls on the main thread, on the menu objects `initialize` created.
++    let app_menu = unsafe { app.mainMenu().and_then(|bar| bar.itemAtIndex(0)).and_then(|item| item.submenu()) };
++    let Some(app_menu) = app_menu else {
++        return 0;
++    };
++    let services = unsafe { app.servicesMenu() };
++    let mut relabeled = 0;
++    for item in unsafe { app_menu.itemArray() }.iter() {
++        // The Services item first: setting its submenu gave it AppKit's `submenuAction:`.
++        let submenu = unsafe { item.submenu() };
++        let is_services = match (&submenu, &services) {
++            (Some(submenu), Some(services)) => Retained::as_ptr(submenu) == Retained::as_ptr(services),
++            _ => false,
++        };
++        let title = if is_services {
++            &titles.services
++        } else {
++            match unsafe { item.action() } {
++                Some(action) if action == sel!(orderFrontStandardAboutPanel:) => &titles.about,
++                Some(action) if action == sel!(hide:) => &titles.hide,
++                Some(action) if action == sel!(hideOtherApplications:) => &titles.hide_others,
++                Some(action) if action == sel!(unhideAllApplications:) => &titles.show_all,
++                Some(action) if action == sel!(terminate:) => &titles.quit,
++                _ => continue,
++            }
++        };
++        if title.is_empty() {
++            continue;
++        }
++        unsafe { item.setTitle(&NSString::from_str(title)) };
++        relabeled += 1;
++    }
++    relabeled
++}
++
+ fn menu_item(
+     mtm: MainThreadMarker,
+     title: &NSString,
+diff --git a/vendor/winit/src/platform_impl/macos/mod.rs b/vendor/winit/src/platform_impl/macos/mod.rs
+index 11d6d7a..53730da 100644
+--- a/vendor/winit/src/platform_impl/macos/mod.rs
++++ b/vendor/winit/src/platform_impl/macos/mod.rs
+@@ -9,7 +9,7 @@ mod event_handler;
+ mod event_loop;
+ mod ffi;
+ mod ime_startup;
+-mod menu;
++pub(crate) mod menu;
+ mod monitor;
+ mod observer;
+ mod view;
+-- 
+2.54.0 (Apple Git-157)
+

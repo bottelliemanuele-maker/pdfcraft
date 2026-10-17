@@ -1,0 +1,208 @@
+From 0c52bba625c1cdb61b8dc80f5d1bfa61e1caa77f Mon Sep 17 00:00:00 2001
+From: Emanuele Bottelli <bottelliemanuele@icloud.com>
+Date: Sat, 17 Oct 2026 20:33:58 +0200
+Subject: [PATCH] ui: fit the window again on resize, and let Finder show PDF
+ thumbnails
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Two things Emanuele noticed on macOS.
+
+Finder showed PdfCraft's icon for every PDF once PdfCraft was the default
+app: the document type declared its own icon (CFBundleTypeIconFile), and
+Finder prefers that to the page thumbnail Quick Look renders. Without the
+key Finder keeps the thumbnail, as it does when Preview is the default.
+
+A view zoomed by hand (⌘+, ⌘−, pinch) kept its zoom when the window was
+resized, while Fit width and Fit page followed the window. The view now
+remembers the last fit chosen (`DocView::refit`, never Custom) and goes
+back to it when the page area changes size, so the document keeps filling
+the window. Preferences ▸ "Fit the page again when the window is resized"
+(on) turns it off; the setting is `refit_on_resize`. The first layout and a
+zoom set before the view is shown are left alone.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ crates/ui-egui/src/canvas.rs   | 33 +++++++++++++++++++++++++++++++++
+ crates/ui-egui/src/i18n/it.tsv |  2 ++
+ crates/ui-egui/src/js_ui.rs    |  1 +
+ crates/ui-egui/src/lib.rs      |  7 +++++++
+ packaging/macos/Info.plist.in  |  5 +++--
+ 5 files changed, 46 insertions(+), 2 deletions(-)
+
+diff --git a/crates/ui-egui/src/canvas.rs b/crates/ui-egui/src/canvas.rs
+index 66a7ed8..416c529 100644
+--- a/crates/ui-egui/src/canvas.rs
++++ b/crates/ui-egui/src/canvas.rs
+@@ -290,6 +290,9 @@ pub struct DocView {
+     pub id: DocId,
+     pub zoom: f32,
+     pub fit: Fit,
++    /// The fit a hand-zoomed view returns to when the window is resized
++    /// (`PdfCraftApp::refit_on_resize`): the last fit chosen, never `Fit::None`.
++    pub refit: Fit,
+     pub layout: PageLayout,
+     /// Whether the base layout scrolls continuously (independent of `layout`, as in Acrobat).
+     pub continuous: bool,
+@@ -581,6 +584,7 @@ impl DocView {
+             id,
+             zoom: defaults.zoom,
+             fit: defaults.fit,
++            refit: if defaults.fit == Fit::None { Fit::Width } else { defaults.fit },
+             layout: defaults.layout,
+             continuous: defaults.continuous,
+             rotation: 0,
+@@ -1160,6 +1164,9 @@ impl DocView {
+     /// Switch the zoom mode, keeping the current page in view.
+     pub fn set_fit(&mut self, fit: Fit) {
+         self.fit = fit;
++        if fit != Fit::None {
++            self.refit = fit;
++        }
+         self.goto = Some((self.current, 0.0));
+     }
+ 
+@@ -1965,6 +1972,7 @@ pub fn shortcuts(view: &mut DocView, ctx: &egui::Context) {
+         }
+         if zoom_reset {
+             view.fit = Fit::Page;
++            view.refit = Fit::Page;
+             view.goto = Some((view.current, 0.0));
+         }
+     }
+@@ -1973,6 +1981,7 @@ pub fn shortcuts(view: &mut DocView, ctx: &egui::Context) {
+     }
+     if pressed(cmd(Key::Num2)) {
+         view.fit = Fit::Width;
++        view.refit = Fit::Width;
+         view.goto = Some((view.current, 0.0));
+     }
+     if pressed(KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::SHIFT, Key::G)) {
+@@ -2095,6 +2104,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
+     }
+     // No dialog, close prompt or palette over the page: only then does page input count.
+     let unobstructed = !app.modal_open() && !app.palette_open;
++    let refit_on_resize = app.refit_on_resize;
+     let view = &mut app.views[index];
+     if view.organize {
+         organize_grid(view, info, doc.allows_assembly(), doc.dirty, unobstructed, ui, &t);
+@@ -2102,8 +2112,15 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
+     }
+ 
+     let avail = ui.available_rect_before_wrap();
++    // The window, or the space left beside the panels, changed size: a view zoomed by hand
++    // goes back to fitting that space when Preferences ask for it. A view not shown yet keeps
++    // its zoom, so the first layout and a zoom set from the CLI are left alone.
++    let resized = view.shown && ((avail.width() - view.viewport_w).abs() > 0.5 || (avail.height() - view.viewport_h).abs() > 0.5);
+     view.viewport_w = avail.width();
+     view.viewport_h = avail.height();
++    if resized && refit_on_resize && view.fit == Fit::None {
++        view.fit = view.refit;
++    }
+     let old_zoom = view.zoom;
+     view.fit_zoom(info);
+     if view.shown && view.zoom_anchor.is_none() && view.goto.is_none() && view.goto_point.is_none() && (view.zoom - old_zoom).abs() > 1e-4 {
+@@ -5328,6 +5345,22 @@ trailer << /Root 1 0 R >>
+         assert_eq!(v.zoom, wide, "continuous fit width holds still across page sizes");
+     }
+ 
++    #[test]
++    fn a_hand_zoomed_view_remembers_the_fit_to_return_to() {
++        let page =
++            |width: f32, height: f32| pdfcraft_render::PageInfo { width, height, label: String::new(), crop: [0.0, 0.0, width, height], rotation: 0 };
++        let info = DocInfo { pages: vec![page(300.0, 400.0)], ..Default::default() };
++        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
++        assert_eq!((v.fit, v.refit), (Fit::Width, Fit::Width));
++        v.set_fit(Fit::Page);
++        v.set_zoom(2.0);
++        assert_eq!((v.fit, v.refit), (Fit::None, Fit::Page), "a manual zoom leaves the fit to return to alone");
++        v.set_fit(Fit::None);
++        assert_eq!(v.refit, Fit::Page, "Custom is never a fit to return to");
++        let custom = ViewDefaults { fit: Fit::None, zoom: 1.5, ..ViewDefaults::default() };
++        assert_eq!(DocView::new(DocId(2), &info, custom).refit, Fit::Width, "a custom default zoom returns to fit width");
++    }
++
+     #[test]
+     fn layouts_match_their_commands_and_names() {
+         for l in PageLayout::ORDER {
+diff --git a/crates/ui-egui/src/i18n/it.tsv b/crates/ui-egui/src/i18n/it.tsv
+index 789c2a0..9e58196 100644
+--- a/crates/ui-egui/src/i18n/it.tsv
++++ b/crates/ui-egui/src/i18n/it.tsv
+@@ -2372,3 +2372,5 @@ animation effects	Off	Disattivati
+ 	Quit {app}	Esci da {app}
+ # Preferences: the find field docked in the toolbar.
+ 	Find text in the toolbar	Campo di ricerca nella barra degli strumenti
++# Preferences: a hand-zoomed view fits the window again when the window is resized.
++	Fit the page again when the window is resized	Riadatta la pagina quando la finestra cambia dimensione
+diff --git a/crates/ui-egui/src/js_ui.rs b/crates/ui-egui/src/js_ui.rs
+index d1b9d36..56ae731 100644
+--- a/crates/ui-egui/src/js_ui.rs
++++ b/crates/ui-egui/src/js_ui.rs
+@@ -382,6 +382,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
+     #[cfg(not(target_arch = "wasm32"))]
+     ui.add(widgets::checkbox(&mut app.reload_changed_files, tl!("Reload documents when their files change on disk")));
+     ui.add(widgets::checkbox(&mut app.find_in_toolbar, tl!("Find text in the toolbar")));
++    ui.add(widgets::checkbox(&mut app.refit_on_resize, tl!("Fit the page again when the window is resized")));
+     ui.horizontal(|ui| {
+         ui.label(tl!("Mouse wheel scroll speed"));
+         for speed in crate::scroll_speed::ScrollSpeed::ALL {
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index 8dbf0e3..ead0b52 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -559,6 +559,8 @@ pub struct PdfCraftApp {
+     /// The find field (⌘F) sits in the toolbar, left of the command search, instead of floating
+     /// over the pages (Preferences).
+     pub find_in_toolbar: bool,
++    /// A view zoomed by hand fits the window again when the window is resized (Preferences).
++    pub refit_on_resize: bool,
+     /// The files open when PdfCraft last closed, read from the settings for
+     /// [`PdfCraftApp::reopen_last_files`].
+     pub last_session: last_session::LastSession,
+@@ -918,6 +920,7 @@ impl PdfCraftApp {
+             recent: Vec::new(),
+             reopen_last_session: false,
+             find_in_toolbar: true,
++            refit_on_resize: true,
+             last_session: Default::default(),
+             quit_session: None,
+             reload_changed_files: true,
+@@ -2151,6 +2154,7 @@ impl PdfCraftApp {
+         });
+         // One more key than `json!` expands within the recursion limit.
+         v["find_in_toolbar"] = serde_json::Value::Bool(self.find_in_toolbar);
++        v["refit_on_resize"] = serde_json::Value::Bool(self.refit_on_resize);
+         v.to_string()
+     }
+ 
+@@ -2185,6 +2189,9 @@ impl PdfCraftApp {
+         if let Some(on) = v["find_in_toolbar"].as_bool() {
+             self.find_in_toolbar = on;
+         }
++        if let Some(on) = v["refit_on_resize"].as_bool() {
++            self.refit_on_resize = on;
++        }
+         self.last_session = last_session::LastSession::from_json(&v["last_session"]);
+         if let Some(on) = v["system_title_bar"].as_bool() {
+             self.system_title_bar = on;
+diff --git a/packaging/macos/Info.plist.in b/packaging/macos/Info.plist.in
+index cfc7d2d..70d526e 100644
+--- a/packaging/macos/Info.plist.in
++++ b/packaging/macos/Info.plist.in
+@@ -59,8 +59,9 @@
+       <string>Editor</string>
+       <key>LSHandlerRank</key>
+       <string>Alternate</string>
+-      <key>CFBundleTypeIconFile</key>
+-      <string>PdfCraft</string>
++      <!-- No CFBundleTypeIconFile: with a custom document icon Finder shows that icon for every
++           PDF once PdfCraft is the default app, instead of the page thumbnail Quick Look renders.
++           Without it Finder keeps the thumbnail, as it does with Preview. -->
+       <key>LSItemContentTypes</key>
+       <array><string>com.adobe.pdf</string></array>
+       <key>CFBundleTypeExtensions</key>
+-- 
+2.54.0 (Apple Git-157)
+
