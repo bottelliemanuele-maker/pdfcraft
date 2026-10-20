@@ -133,6 +133,18 @@ moves 1–1000 references atomically in displayed points (right/down), preservin
 and fonts. A refusal changes nothing; success is one undo step. See
 [the selection and movement guide](../../docs/editing-multiple-objects.md) for limits and examples.
 
+## Stamp groups
+
+`stamp_group {doc, page, at, items: [{path, file_page?, name?, width?, offset?}], author?}` places
+1–8 pictures (PDF pages or images, transparency kept) together as one undoable step: a company
+stamp with a graphic signature across it, say. `at` is the group's anchor in points from the
+displayed page's top-left corner; each item's centre is `at` plus its `offset` (right and down),
+and `width` is its displayed width in points (default: natural size, at most 200 pt), the height
+following the picture's proportions. Pictures read upright on turned pages. A bad item refuses
+the whole group before anything changes. The history label is "Add stamp and signature". A
+graphic signature is a picture, never a certified digital signature (`sign_document`). The
+desktop app's stamp library builds its presets on the same engine call.
+
 ## Accessibility review record
 
 Open the original and edited PDFs as separate documents, then call

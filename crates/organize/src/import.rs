@@ -1326,6 +1326,41 @@ fn add_outline(doc: &mut Document, marks: &[Mark]) -> Result<(), OrganizeError> 
     Ok(())
 }
 
+/// A page's visible box and rotation, read from its dictionary with the inherited attributes.
+struct PageGeometry {
+    /// The crop box, else the media box, else US Letter; normalised (x0 ≤ x1, y0 ≤ y1).
+    bbox: [f64; 4],
+    /// `/Rotate` in 0..360.
+    rotate: i64,
+}
+
+impl PageGeometry {
+    fn read(src: &Document, d: &Dict) -> Self {
+        let rect = |k: &[u8]| -> Option<[f64; 4]> {
+            let a = src.resolve(d.get(k)?);
+            let v: Vec<f64> = a.as_array()?.iter().filter_map(|x| src.resolve(x).as_f64()).collect();
+            (v.len() == 4).then(|| [v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])])
+        };
+        let bbox = rect(b"CropBox").or_else(|| rect(b"MediaBox")).unwrap_or([0.0, 0.0, 612.0, 792.0]);
+        let rotate = d.get(b"Rotate").and_then(|r| src.resolve(r).as_int()).unwrap_or(0).rem_euclid(360);
+        Self { bbox, rotate }
+    }
+
+    /// The page's size in points as displayed (the box turned by `/Rotate`).
+    fn displayed(&self) -> (f64, f64) {
+        let (w, h) = (self.bbox[2] - self.bbox[0], self.bbox[3] - self.bbox[1]);
+        if self.rotate == 90 || self.rotate == 270 { (h, w) } else { (w, h) }
+    }
+}
+
+/// The size of page `page` (0-based) of `src` in points as displayed: what a custom stamp made
+/// from that page measures at its natural size (see [`page_as_form`]).
+pub fn page_display_size(src: &Document, page: usize) -> Result<(f64, f64), OrganizeError> {
+    let all = walk(src)?;
+    let (_, d) = all.get(page).ok_or(OrganizeError::NoSuchPage(page))?;
+    Ok(PageGeometry::read(src, d).displayed())
+}
+
 /// Page `page` of `src` as a form XObject in `dst` (its content and resources, no annotations),
 /// for backgrounds and watermarks taken from a PDF. The form's `/BBox` is the page's crop box
 /// and its `/Matrix` undoes the page rotation, so it draws upright as displayed. Returns the
@@ -1337,14 +1372,8 @@ pub fn page_as_form(dst: &mut Document, src: &Document, page: usize) -> Result<(
     // the page's own.
     let (pr, d) = all.get(page).cloned().ok_or(OrganizeError::NoSuchPage(page))?;
     let own = src.get(pr).as_dict().cloned().unwrap_or_default();
-    let rect = |k: &[u8]| -> Option<[f64; 4]> {
-        let a = src.resolve(d.get(k)?);
-        let v: Vec<f64> = a.as_array()?.iter().filter_map(|x| src.resolve(x).as_f64()).collect();
-        (v.len() == 4).then(|| [v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])])
-    };
-    let bbox = rect(b"CropBox").or_else(|| rect(b"MediaBox")).unwrap_or([0.0, 0.0, 612.0, 792.0]);
-    let (w, h) = (bbox[2] - bbox[0], bbox[3] - bbox[1]);
-    let rotate = d.get(b"Rotate").and_then(|r| src.resolve(r).as_int()).unwrap_or(0).rem_euclid(360);
+    let geometry = PageGeometry::read(src, &d);
+    let (bbox, rotate) = (geometry.bbox, geometry.rotate);
     // Content: the page's streams, decoded and joined.
     let mut content = Vec::new();
     if let Some(c) = own.get(b"Contents") {
@@ -1379,6 +1408,5 @@ pub fn page_as_form(dst: &mut Document, src: &Document, page: usize) -> Result<(
     fd.set(b"Matrix".to_vec(), Object::Array(m.iter().map(|v| Object::Real(*v)).collect()));
     fd.set(b"Resources".to_vec(), resources);
     let r = dst.add(Object::Stream(Stream::flate(fd, &content)));
-    let size = if rotate == 90 || rotate == 270 { (h, w) } else { (w, h) };
-    Ok((r, size))
+    Ok((r, geometry.displayed()))
 }

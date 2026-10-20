@@ -2347,3 +2347,27 @@ animation effects	Off	Выкл
 	Make properties default	Сделать свойства стандартными
 	Pages selected	Выделенные страницы
 	Page properties	Свойства страницы
+	Add Graphic Signature	Добавить графическую подпись
+	Add graphic signature…	Добавить графическую подпись…
+	Delete preset	Удалить набор
+	Delete signature	Удалить подпись
+	Graphic signatures	Графические подписи
+	Layout:	Расположение:
+	Needs the picture of {name}	Нет изображения для {name}
+	New Preset	Новый набор
+	New preset…	Новый набор…
+	No picture yet	Изображения пока нет
+	Not configured	Не настроено
+	Presets	Наборы
+	Signature:	Подпись:
+	Stamp:	Штамп:
+	the picture has no size	у изображения нет размера
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: штампа или подписи из этого набора больше нет в библиотеке.
+	{name} has no picture yet. Choose one in the stamps palette.	У {name} пока нет изображения. Выберите его на палитре штампов.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Графическая подпись — это изображение рукописной подписи. Это не сертифицированная цифровая подпись: для неё используйте «Подписать цифровой подписью».
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Предоставьте PNG или JPEG оригинала, желательно с прозрачным фоном.
+	A preset places a stamp and a graphic signature together with one click.	Набор ставит штамп и графическую подпись вместе одним щелчком.
+	Signature across the stamp	Подпись поверх штампа
+	Signature below the stamp	Подпись под штампом
+	Signature beside the stamp	Подпись рядом со штампом
+	Add stamp and signature	Добавить штамп и подпись

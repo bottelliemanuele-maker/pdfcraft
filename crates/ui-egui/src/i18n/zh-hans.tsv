@@ -2398,3 +2398,27 @@ animation effects	Off	关
 	Make properties default	将属性设为默认
 	Pages selected	选定的页面
 	Page properties	页面属性
+	Add Graphic Signature	添加图形签名
+	Add graphic signature…	添加图形签名…
+	Delete preset	删除预设
+	Delete signature	删除签名
+	Graphic signatures	图形签名
+	Layout:	布局:
+	Needs the picture of {name}	缺少 {name} 的图片
+	New Preset	新建预设
+	New preset…	新建预设…
+	No picture yet	尚无图片
+	Not configured	未配置
+	Presets	预设
+	Signature:	签名:
+	Stamp:	图章:
+	the picture has no size	图片没有尺寸
+	{name}: a stamp or signature it uses is no longer in the library.	{name}:它使用的图章或签名已不在库中。
+	{name} has no picture yet. Choose one in the stamps palette.	{name} 尚无图片。请在图章面板中选择一张。
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	图形签名是手写签名的图片，不是经认证的数字签名；如需数字签名，请使用“数字签名”。
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	请提供原件的 PNG 或 JPEG 图片，最好带透明背景。
+	A preset places a stamp and a graphic signature together with one click.	预设可一键同时放置一个图章和一个图形签名。
+	Signature across the stamp	签名叠在图章上
+	Signature below the stamp	签名在图章下方
+	Signature beside the stamp	签名在图章旁边
+	Add stamp and signature	添加图章和签名

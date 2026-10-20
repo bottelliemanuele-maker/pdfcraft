@@ -2439,3 +2439,27 @@ animation effects	Off	Izklopljeni
 	Make properties default	Nastavi lastnosti kot privzete
 	Pages selected	Izbrane strani
 	Page properties	Lastnosti strani
+	Add Graphic Signature	Dodaj grafični podpis
+	Add graphic signature…	Dodaj grafični podpis…
+	Delete preset	Izbriši prednastavitev
+	Delete signature	Izbriši podpis
+	Graphic signatures	Grafični podpisi
+	Layout:	Razporeditev:
+	Needs the picture of {name}	Manjka slika za {name}
+	New Preset	Nova prednastavitev
+	New preset…	Nova prednastavitev…
+	No picture yet	Še brez slike
+	Not configured	Ni nastavljeno
+	Presets	Prednastavitve
+	Signature:	Podpis:
+	Stamp:	Žig:
+	the picture has no size	slika nima velikosti
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: žiga ali podpisa iz te prednastavitve ni več v knjižnici.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} še nima slike. Izberite jo v paleti žigov.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Grafični podpis je slika lastnoročnega podpisa. Ni certificiran digitalni podpis: za to uporabite »Digitalno podpiši«.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Priskrbite PNG ali JPEG izvirnika, po možnosti s prosojnim ozadjem.
+	A preset places a stamp and a graphic signature together with one click.	Prednastavitev postavi žig in grafični podpis skupaj z enim klikom.
+	Signature across the stamp	Podpis čez žig
+	Signature below the stamp	Podpis pod žigom
+	Signature beside the stamp	Podpis ob žigu
+	Add stamp and signature	Dodaj žig in podpis

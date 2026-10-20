@@ -123,7 +123,10 @@ impl Automation {
             return Err(ToolError::InvalidArgs(format!("dpi must be between 1 and {MAX_DPI}")));
         }
         let doc = self.doc(a)?;
-        let preview = doc.image_signature_preview(page, index).map_err(failed)?.ok_or_else(|| failed("choose an image signature or initials"))?;
+        let preview = doc
+            .image_signature_preview(page, index)
+            .map_err(failed)?
+            .ok_or_else(|| failed("choose a picture stamp made from an image: a signature, initials or a custom stamp"))?;
         let annotation = doc.info.annotations.iter().find(|c| c.page == page && c.index == index).ok_or_else(|| failed("no such comment"))?;
         let info = doc.info.pages.get(page).ok_or_else(|| failed("no such page"))?;
         let [w, h] = preview.image.size();
@@ -668,6 +671,69 @@ impl Automation {
             },
             author: a.opt_str("author")?.unwrap_or(DEFAULT_AUTHOR).to_string(),
         };
+        self.apply(a, edit)
+    }
+
+    /// Several pictures placed together as one undoable step (a company stamp with a graphic
+    /// signature across it): each `items` entry is a file with an optional `file_page`, `name`,
+    /// `width` (displayed points) and `offset` from `at`.
+    pub(crate) fn stamp_group(&mut self, a: &Args) -> Result<Value> {
+        use pdfcraft_engine::stamp_group::{MAX_PICTURES, WIDTH_RANGE};
+        let page = self.page(a)?;
+        let info = self.doc(a)?.info.pages.get(page).cloned().ok_or_else(|| failed("no such page"))?;
+        let [x, y] = a.need::<2>("at", "a stamp group (its anchor)")?;
+        let items = a.get("items").and_then(Value::as_array).ok_or_else(|| ToolError::InvalidArgs("items must be an array of pictures".into()))?;
+        if items.is_empty() || items.len() > MAX_PICTURES {
+            return Err(ToolError::InvalidArgs(format!("items must hold 1 to {MAX_PICTURES} pictures")));
+        }
+        let mut pictures = Vec::with_capacity(items.len());
+        for (i, item) in items.iter().enumerate() {
+            let item = Args(item);
+            let path = item.get("path").and_then(Value::as_str).ok_or_else(|| ToolError::InvalidArgs(format!("items[{i}].path must be a string")))?;
+            let width = match item.get("width") {
+                None => None,
+                Some(w) => Some(w.as_f64().filter(|w| w.is_finite() && WIDTH_RANGE.contains(w)).ok_or_else(|| {
+                    ToolError::InvalidArgs(format!("items[{i}].width must be {} to {} points", WIDTH_RANGE.start(), WIDTH_RANGE.end()))
+                })?),
+            };
+            let offset = match item.get("offset") {
+                None => [0.0, 0.0],
+                Some(o) => {
+                    let v: Vec<f64> =
+                        o.as_array().map(|a| a.iter().filter_map(|n| n.as_f64().filter(|n| n.is_finite())).collect()).unwrap_or_default();
+                    match v.as_slice() {
+                        [dx, dy] if o.as_array().is_some_and(|a| a.len() == 2) => [*dx, *dy],
+                        _ => return Err(ToolError::InvalidArgs(format!("items[{i}].offset must be [dx, dy] in points"))),
+                    }
+                }
+            };
+            let file_page = match item.get("file_page") {
+                None => 0,
+                Some(p) => {
+                    p.as_i64().filter(|p| *p >= 1).ok_or_else(|| ToolError::InvalidArgs(format!("items[{i}].file_page must be 1 or more")))? as usize
+                        - 1
+                }
+            };
+            let resolved = self.resolve(path, false)?;
+            let bytes = std::fs::read(&resolved).map_err(|e| failed(format!("{}: {e}", resolved.display())))?;
+            let file = resolved.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let name = match item.get("name") {
+                None => file.rsplit_once('.').map_or(file.clone(), |(s, _)| s.to_owned()),
+                Some(n) => n
+                    .as_str()
+                    .filter(|n| !n.trim().is_empty())
+                    .ok_or_else(|| ToolError::InvalidArgs(format!("items[{i}].name must be a string")))?
+                    .to_owned(),
+            };
+            pictures.push(pdfcraft_engine::GroupPicture {
+                name,
+                file: pdfcraft_engine::MarkFile { name: file, bytes: std::sync::Arc::new(bytes), page: file_page },
+                width,
+                offset,
+            });
+        }
+        let author = a.opt_str("author")?.unwrap_or(DEFAULT_AUTHOR);
+        let edit = pdfcraft_engine::stamp_group(page, &info, [x, y], &pictures, author).map_err(failed)?;
         self.apply(a, edit)
     }
 }

@@ -34,6 +34,7 @@ mod scan_colours;
 mod scan_fields;
 pub mod signature_image;
 pub mod signature_scan;
+pub mod stamp_group;
 pub mod text_fonts;
 mod text_preview;
 pub mod word_count;
@@ -41,6 +42,7 @@ pub mod xfa;
 
 pub use signature_image::{ImageSignaturePreview, SignatureImage};
 pub use signature_scan::{PhotoRect, ScanError, SignaturePhoto, Turn};
+pub use stamp_group::{GroupPicture, STAMP_GROUP_LABEL, picture_size, stamp_group};
 pub use text_preview::TextEditPreview;
 
 pub use pdfcraft_organize::{BoxSpec, FieldConflicts, PageBox, SplitBy, Transition, TransitionSpec, split_ranges};
@@ -1939,7 +1941,8 @@ pub const EDIT_LABELS: &[&str] = &[
 /// The names of the batches built below L7, which an interface shows in the same places as
 /// [`EDIT_LABELS`] and so translates the same way. A batch built in the interface itself arrives
 /// already worded in the interface's language.
-pub const BATCH_LABELS: &[&str] = &["Set document title", "Mark differences", "Detect form fields", "Run JavaScript", "Recognize text"];
+pub const BATCH_LABELS: &[&str] =
+    &["Set document title", "Mark differences", "Detect form fields", "Run JavaScript", "Recognize text", stamp_group::STAMP_GROUP_LABEL];
 
 impl Edit {
     /// Label for the Edit menu and history ("Undo Rotate pages").
@@ -4967,10 +4970,14 @@ fn embed_image(
     pdfcraft_create::image_xobject(doc, name, bytes)
 }
 
+/// Whether a picture file is a PDF (a `%PDF-` header within its first KiB) rather than an image.
+pub(crate) fn looks_like_pdf(bytes: &[u8]) -> bool {
+    bytes.get(..bytes.len().min(1024)).unwrap_or_default().windows(5).any(|w| w == b"%PDF-")
+}
+
 /// Bring a mark's picture into `doc`: a PDF page as a form XObject, or an image.
 fn mark_source(doc: &mut pdfcraft_cos::Document, f: &MarkFile) -> Result<pdfcraft_edit::MarkSource, EditError> {
-    let head = &f.bytes[..f.bytes.len().min(1024)];
-    if head.windows(5).any(|w| w == b"%PDF-") {
+    if looks_like_pdf(&f.bytes) {
         let src = pdfcraft_cos::Document::open(f.bytes.clone()).map_err(|e| EditError::Source(format!("{}: {e}", f.name)))?;
         let (xobject, size) = pdfcraft_organize::page_as_form(doc, &src, f.page)?;
         Ok(pdfcraft_edit::MarkSource { xobject, size, image: false })

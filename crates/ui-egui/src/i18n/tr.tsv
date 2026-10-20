@@ -2430,3 +2430,27 @@ animation effects	Off	Kapalı
 	Make properties default	Özellikleri varsayılan yap
 	Pages selected	Seçilen sayfalar
 	Page properties	Sayfa özellikleri
+	Add Graphic Signature	Grafik imza ekle
+	Add graphic signature…	Grafik imza ekle…
+	Delete preset	Ön ayarı sil
+	Delete signature	İmzayı sil
+	Graphic signatures	Grafik imzalar
+	Layout:	Yerleşim:
+	Needs the picture of {name}	{name} için resim eksik
+	New Preset	Yeni ön ayar
+	New preset…	Yeni ön ayar…
+	No picture yet	Henüz resim yok
+	Not configured	Yapılandırılmadı
+	Presets	Ön ayarlar
+	Signature:	İmza:
+	Stamp:	Damga:
+	the picture has no size	resmin boyutu yok
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: kullandığı bir damga veya imza artık kitaplıkta değil.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} için henüz resim yok. Damga paletinden bir resim seçin.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Grafik imza, el yazısı bir imzanın resmidir. Sertifikalı bir dijital imza değildir: bunun için "Dijital olarak imzala" komutunu kullanın.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Aslının PNG veya JPEG kopyasını sağlayın, tercihen saydam arka planla.
+	A preset places a stamp and a graphic signature together with one click.	Bir ön ayar, bir damga ile bir grafik imzayı tek tıklamayla birlikte yerleştirir.
+	Signature across the stamp	İmza damganın üzerinde
+	Signature below the stamp	İmza damganın altında
+	Signature beside the stamp	İmza damganın yanında
+	Add stamp and signature	Damga ve imza ekle

@@ -2508,3 +2508,27 @@ animation effects	Off	Vypnuto
 	Make properties default	Nastavit vlastnosti jako výchozí
 	Pages selected	Vybrané stránky
 	Page properties	Vlastnosti stránky
+	Add Graphic Signature	Přidat grafický podpis
+	Add graphic signature…	Přidat grafický podpis…
+	Delete preset	Odstranit předvolbu
+	Delete signature	Odstranit podpis
+	Graphic signatures	Grafické podpisy
+	Layout:	Rozložení:
+	Needs the picture of {name}	Chybí obrázek pro {name}
+	New Preset	Nová předvolba
+	New preset…	Nová předvolba…
+	No picture yet	Zatím bez obrázku
+	Not configured	Nenastaveno
+	Presets	Předvolby
+	Signature:	Podpis:
+	Stamp:	Razítko:
+	the picture has no size	obrázek nemá rozměry
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: razítko nebo podpis z této předvolby už není v knihovně.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} zatím nemá obrázek. Vyberte ho v paletě razítek.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Grafický podpis je obrázek vlastnoručního podpisu. Není to certifikovaný digitální podpis: k tomu použijte „Digitálně podepsat“.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Dodejte PNG nebo JPEG originálu, nejlépe s průhledným pozadím.
+	A preset places a stamp and a graphic signature together with one click.	Předvolba umístí razítko a grafický podpis společně jedním klepnutím.
+	Signature across the stamp	Podpis přes razítko
+	Signature below the stamp	Podpis pod razítkem
+	Signature beside the stamp	Podpis vedle razítka
+	Add stamp and signature	Přidat razítko a podpis

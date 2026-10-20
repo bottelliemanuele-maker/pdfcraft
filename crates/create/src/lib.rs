@@ -545,12 +545,29 @@ fn embed(name: &str, bytes: &[u8]) -> Result<Vec<Embedded>, CreateError> {
     }
 }
 
+/// The first image of a file (its first page, for TIFFs), decoded.
+fn first_image(name: &str, bytes: &[u8]) -> Result<Embedded, CreateError> {
+    embed(name, bytes)?.into_iter().next().ok_or_else(|| CreateError::Image(name.into(), "the file has no image".into()))
+}
+
+/// An image's natural size in points: its pixels at its resolution.
+fn natural_points(img: &Embedded) -> (f64, f64) {
+    (img.px.0 as f64 * 72.0 / img.dpi.0, img.px.1 as f64 * 72.0 / img.dpi.1)
+}
+
 /// Embed an image file (its first page, for TIFFs) as an image XObject in `doc`. Returns the
 /// object and the image's natural size in points (from its resolution).
 pub fn image_xobject(doc: &mut Document, name: &str, bytes: &[u8]) -> Result<(ObjRef, (f64, f64)), CreateError> {
-    let img = embed(name, bytes)?.into_iter().next().ok_or_else(|| CreateError::Image(name.into(), "the file has no image".into()))?;
-    let size = (img.px.0 as f64 * 72.0 / img.dpi.0, img.px.1 as f64 * 72.0 / img.dpi.1);
+    let img = first_image(name, bytes)?;
+    let size = natural_points(&img);
     Ok((add_image(doc, img, &mut Vec::new()), size))
+}
+
+/// The natural size in points [`image_xobject`] would give an image file, without embedding it:
+/// what a picture placed at its natural size measures. The file is decoded, so the same files
+/// are refused, with the same errors.
+pub fn image_size(name: &str, bytes: &[u8]) -> Result<(f64, f64), CreateError> {
+    Ok(natural_points(&first_image(name, bytes)?))
 }
 
 /// Resolution used to size PDF pages. Image pixels are never resampled.

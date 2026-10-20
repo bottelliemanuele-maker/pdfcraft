@@ -2433,3 +2433,27 @@ animation effects	Off	Ki
 	Make properties default	Tulajdonságok beállítása alapértelmezettként
 	Pages selected	Kijelölt oldalak
 	Page properties	Oldaltulajdonságok
+	Add Graphic Signature	Grafikus aláírás hozzáadása
+	Add graphic signature…	Grafikus aláírás hozzáadása…
+	Delete preset	Készlet törlése
+	Delete signature	Aláírás törlése
+	Graphic signatures	Grafikus aláírások
+	Layout:	Elrendezés:
+	Needs the picture of {name}	Hiányzik {name} képe
+	New Preset	Új készlet
+	New preset…	Új készlet…
+	No picture yet	Még nincs kép
+	Not configured	Nincs beállítva
+	Presets	Készletek
+	Signature:	Aláírás:
+	Stamp:	Bélyegző:
+	the picture has no size	a képnek nincs mérete
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: a készlet egy bélyegzője vagy aláírása már nincs a könyvtárban.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} még nem kapott képet. Válasszon egyet a bélyegzőpalettán.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	A grafikus aláírás egy kézzel írt aláírás képe. Nem hitelesített digitális aláírás: ahhoz a „Digitális aláírás” parancsot használja.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Adjon meg egy PNG vagy JPEG képet az eredetiről, lehetőleg átlátszó háttérrel.
+	A preset places a stamp and a graphic signature together with one click.	A készlet egy bélyegzőt és egy grafikus aláírást helyez el együtt, egy kattintással.
+	Signature across the stamp	Aláírás a bélyegzőn
+	Signature below the stamp	Aláírás a bélyegző alatt
+	Signature beside the stamp	Aláírás a bélyegző mellett
+	Add stamp and signature	Bélyegző és aláírás hozzáadása

@@ -369,6 +369,33 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["doc", "page", "path", "at"],
             )),
+        t("stamp_group", "Add a stamp group", "Place several pictures together as one undoable step, as a company stamp with a graphic signature across it: each item is a PDF page (file_page, default 1) or an image file (PNG, JPEG, TIFF, GIF, BMP; transparency kept), drawn width points wide as displayed (default: its natural size, at most 200 pt) keeping its proportions, with its centre at at [x, y] (points from the top-left of the displayed page) plus its offset [dx, dy] (points right and down, default [0, 0]). name labels an item (default: its file name). Pictures read upright on turned pages. Undo takes the whole group back (\"Add stamp and signature\"). A graphic signature is a picture, not a certified digital signature (see sign_document).")
+            .cmd("comment.stamp")
+            .with(schema(
+                json!({
+                    "doc": doc(),
+                    "page": { "type": "integer", "minimum": 1 },
+                    "at": point(),
+                    "items": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": { "type": "string" },
+                                "file_page": { "type": "integer", "minimum": 1 },
+                                "name": { "type": "string" },
+                                "width": { "type": "number", "minimum": 1, "maximum": 10000, "description": "Displayed width in points (default: natural size, at most 200 pt)." },
+                                "offset": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "description": "The picture's centre, in points right and down from at (default [0, 0])." },
+                            },
+                            "required": ["path"],
+                        },
+                    },
+                    "author": { "type": "string" },
+                }),
+                &["doc", "page", "at", "items"],
+            )),
         t("form_set_image", "Set an image field's picture", "Show an image file (PNG, JPEG, TIFF, GIF or BMP) in an image field or button, scaled to fit and centred (what clicking an image field does). On an XFA form the picture is kept in its data too (base64, as Designer saves it) and the form shows it from there. Undoable.")
             .with(schema(json!({ "doc": doc(), "field": { "type": "string" }, "path": { "type": "string" } }), &["doc", "field", "path"])),
         t(
@@ -797,7 +824,7 @@ pub fn tools() -> Vec<ToolDef> {
             })),
             &["doc"],
         )),
-        t("comment_image_preview", "Preview image signature layers", "Return a PNG of the page without the selected image signature/initials (layer=background, default), or its embedded image with alpha (layer=image). Includes the displayed rectangle, document rotation, image_rotation (how far clockwise the image is shown turned) and annotation opacity. Cache these layers for live placement/resizing; commit once with comment_edit. Does not change the document or undo history.")
+        t("comment_image_preview", "Preview picture stamp layers", "Return a PNG of the page without the selected picture stamp made from an image (a Fill & Sign signature or initials, or a custom stamp; layer=background, default), or its embedded image with alpha (layer=image). Includes the displayed rectangle, document rotation, image_rotation (how far clockwise the image is shown turned) and annotation opacity. Cache these layers for live placement/resizing; commit once with comment_edit. Does not change the document or undo history.")
             .ro().with(schema(comment_ref(json!({ "layer": { "type": "string", "enum": ["background", "image"], "default": "background" }, "dpi": { "type": "number", "minimum": 1, "maximum": 600, "default": 96 } })), &["doc"])),
         t("comment_delete", "Delete a comment", "Delete a comment with its pop-up and replies. Undoable.").destructive().with(schema(comment_ref(json!({})), &["doc"])),
         t(

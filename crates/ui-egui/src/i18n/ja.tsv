@@ -2434,3 +2434,27 @@ animation effects	Off	オフ
 	Make properties default	プロパティをデフォルトに設定
 	Pages selected	選択したページ
 	Page properties	ページのプロパティ
+	Add Graphic Signature	手書き署名画像を追加
+	Add graphic signature…	手書き署名画像を追加…
+	Delete preset	プリセットを削除
+	Delete signature	署名画像を削除
+	Graphic signatures	手書き署名画像
+	Layout:	配置:
+	Needs the picture of {name}	{name} の画像がありません
+	New Preset	新しいプリセット
+	New preset…	新しいプリセット…
+	No picture yet	画像はまだありません
+	Not configured	未設定
+	Presets	プリセット
+	Signature:	署名:
+	Stamp:	スタンプ:
+	the picture has no size	画像にサイズがありません
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: このプリセットが使うスタンプまたは署名はライブラリにありません。
+	{name} has no picture yet. Choose one in the stamps palette.	{name} にはまだ画像がありません。スタンプパレットで選んでください。
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	手書き署名画像は、手書きの署名を写した画像です。認証されたデジタル署名ではありません。デジタル署名には「デジタル署名を追加」を使ってください。
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	原本の PNG または JPEG を用意してください。背景が透明なものが望ましいです。
+	A preset places a stamp and a graphic signature together with one click.	プリセットは、スタンプと手書き署名画像をワンクリックでまとめて配置します。
+	Signature across the stamp	署名をスタンプの上に重ねる
+	Signature below the stamp	署名をスタンプの下に置く
+	Signature beside the stamp	署名をスタンプの横に置く
+	Add stamp and signature	スタンプと署名を追加

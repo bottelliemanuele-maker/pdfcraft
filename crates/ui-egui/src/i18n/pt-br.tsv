@@ -2448,3 +2448,27 @@ animation effects	Off	Desativados
 	Make properties default	Tornar propriedades padrão
 	Pages selected	Páginas selecionadas
 	Page properties	Propriedades da página
+	Add Graphic Signature	Adicionar assinatura gráfica
+	Add graphic signature…	Adicionar assinatura gráfica…
+	Delete preset	Excluir predefinição
+	Delete signature	Excluir assinatura
+	Graphic signatures	Assinaturas gráficas
+	Layout:	Disposição:
+	Needs the picture of {name}	Falta a imagem de {name}
+	New Preset	Nova predefinição
+	New preset…	Nova predefinição…
+	No picture yet	Ainda sem imagem
+	Not configured	Não configurado
+	Presets	Predefinições
+	Signature:	Assinatura:
+	Stamp:	Carimbo:
+	the picture has no size	a imagem não tem tamanho
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: um carimbo ou uma assinatura que ela usa não está mais na biblioteca.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} ainda não tem imagem. Escolha uma na paleta de carimbos.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Uma assinatura gráfica é a imagem de uma assinatura manuscrita. Não é uma assinatura digital certificada: para isso, use Assinar digitalmente.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Forneça um PNG ou JPEG do original, de preferência com fundo transparente.
+	A preset places a stamp and a graphic signature together with one click.	Uma predefinição coloca um carimbo e uma assinatura gráfica juntos com um clique.
+	Signature across the stamp	Assinatura sobre o carimbo
+	Signature below the stamp	Assinatura abaixo do carimbo
+	Signature beside the stamp	Assinatura ao lado do carimbo
+	Add stamp and signature	Adicionar carimbo e assinatura

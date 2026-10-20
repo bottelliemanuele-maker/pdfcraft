@@ -2440,3 +2440,27 @@ animation effects	Off	Ανενεργά
 	Make properties default	Ορισμός ιδιοτήτων ως προεπιλογή
 	Pages selected	Επιλεγμένες σελίδες
 	Page properties	Ιδιότητες σελίδας
+	Add Graphic Signature	Προσθήκη γραφικής υπογραφής
+	Add graphic signature…	Προσθήκη γραφικής υπογραφής…
+	Delete preset	Διαγραφή προεπιλογής
+	Delete signature	Διαγραφή υπογραφής
+	Graphic signatures	Γραφικές υπογραφές
+	Layout:	Διάταξη:
+	Needs the picture of {name}	Λείπει η εικόνα για {name}
+	New Preset	Νέα προεπιλογή
+	New preset…	Νέα προεπιλογή…
+	No picture yet	Δεν υπάρχει εικόνα ακόμη
+	Not configured	Δεν έχει ρυθμιστεί
+	Presets	Προεπιλογές
+	Signature:	Υπογραφή:
+	Stamp:	Σφραγίδα:
+	the picture has no size	η εικόνα δεν έχει μέγεθος
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: μια σφραγίδα ή υπογραφή που χρησιμοποιεί δεν υπάρχει πλέον στη βιβλιοθήκη.
+	{name} has no picture yet. Choose one in the stamps palette.	Το {name} δεν έχει ακόμη εικόνα. Επιλέξτε μία από την παλέτα σφραγίδων.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Η γραφική υπογραφή είναι εικόνα μιας χειρόγραφης υπογραφής. Δεν είναι πιστοποιημένη ψηφιακή υπογραφή: για αυτήν χρησιμοποιήστε την «Ψηφιακή υπογραφή».
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Δώστε ένα PNG ή JPEG του πρωτοτύπου, κατά προτίμηση με διαφανές φόντο.
+	A preset places a stamp and a graphic signature together with one click.	Μια προεπιλογή τοποθετεί μια σφραγίδα και μια γραφική υπογραφή μαζί με ένα κλικ.
+	Signature across the stamp	Υπογραφή πάνω στη σφραγίδα
+	Signature below the stamp	Υπογραφή κάτω από τη σφραγίδα
+	Signature beside the stamp	Υπογραφή δίπλα στη σφραγίδα
+	Add stamp and signature	Προσθήκη σφραγίδας και υπογραφής

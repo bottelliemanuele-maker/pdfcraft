@@ -2434,3 +2434,27 @@ animation effects	Off	Désactivés
 	Make properties default	Définir comme propriétés par défaut
 	Pages selected	Pages sélectionnées
 	Page properties	Propriétés de la page
+	Add Graphic Signature	Ajouter une signature graphique
+	Add graphic signature…	Ajouter une signature graphique…
+	Delete preset	Supprimer le préréglage
+	Delete signature	Supprimer la signature
+	Graphic signatures	Signatures graphiques
+	Layout:	Disposition :
+	Needs the picture of {name}	Il manque l'image de {name}
+	New Preset	Nouveau préréglage
+	New preset…	Nouveau préréglage…
+	No picture yet	Pas encore d'image
+	Not configured	Non configuré
+	Presets	Préréglages
+	Signature:	Signature :
+	Stamp:	Tampon :
+	the picture has no size	l'image n'a pas de dimensions
+	{name}: a stamp or signature it uses is no longer in the library.	{name} : un tampon ou une signature qu'il utilise n'est plus dans la bibliothèque.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} n'a pas encore d'image. Choisissez-en une dans la palette des tampons.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Une signature graphique est l'image d'une signature manuscrite. Ce n'est pas une signature numérique certifiée : pour cela, utilisez « Signer numériquement ».
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Fournissez un PNG ou un JPEG de l'original, de préférence avec un fond transparent.
+	A preset places a stamp and a graphic signature together with one click.	Un préréglage place un tampon et une signature graphique ensemble en un clic.
+	Signature across the stamp	Signature sur le tampon
+	Signature below the stamp	Signature sous le tampon
+	Signature beside the stamp	Signature à côté du tampon
+	Add stamp and signature	Ajouter un tampon et une signature

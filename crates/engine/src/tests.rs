@@ -6050,7 +6050,7 @@ fn a_phone_photo_used_as_a_custom_stamp_is_embedded_upright() {
     let stamp = Edit::AddCustomStamp { page: 0, rect: [100.0, 100.0, 100.0, 100.0], name: "Signature".into(), file, author: "Ada".into() };
     session.apply(id, stamp).unwrap();
     let cos = &session.get(id).unwrap().editor.as_ref().unwrap().cos;
-    let picture = pdfcraft_annot::signature_image(cos, 0, 0).unwrap().unwrap();
+    let picture = pdfcraft_annot::picture_image(cos, 0, 0).unwrap().unwrap();
     let obj = cos.get(picture);
     let pdfcraft_cos::Object::Stream(s) = &*obj else { panic!() };
     assert_eq!((s.dict.int(b"Width"), s.dict.int(b"Height")), (Some(20), Some(60)));

@@ -3923,6 +3923,87 @@ fn stamps_through_tools() {
     assert!(matches!(a.call("stamp_custom", &json!({ "doc": doc, "page": 1, "path": "nope.png", "at": [1, 1] })), Err(ToolError::Failed(_))));
 }
 
+/// An RGBA PNG of `w`×`h` pixels: `ink` where `inked(x, y)` holds, transparent elsewhere.
+fn rgba_png(w: u32, h: u32, ink: [u8; 4], inked: impl Fn(u32, u32) -> bool) -> Vec<u8> {
+    let mut png = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png, w, h);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let inked = &inked;
+        let rgba: Vec<u8> = (0..h).flat_map(|y| (0..w).flat_map(move |x| if inked(x, y) { ink } else { [0, 0, 0, 0] })).collect();
+        encoder.write_header().unwrap().write_image_data(&rgba).unwrap();
+    }
+    png
+}
+
+/// A company stamp with a graphic signature across it, placed as one group: both keep their
+/// proportions, Undo takes both back, they survive a save, and bad arguments change nothing.
+/// The pictures are synthetic: no real stamp or signature is involved.
+#[test]
+fn stamp_groups_through_tools() {
+    let dir = workdir("stamp_group");
+    std::fs::write(dir.join("stamp.png"), rgba_png(120, 60, [0, 60, 200, 255], |_, _| true)).unwrap();
+    std::fs::write(dir.join("signature.png"), rgba_png(90, 30, [0, 0, 0, 255], |x, y| (10..80).contains(&x) && (12..18).contains(&y))).unwrap();
+    std::fs::write(dir.join("broken.png"), b"broken").unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let items = json!([
+        { "path": "stamp.png", "name": "Company" },
+        { "path": "signature.png", "name": "Signature", "width": 60, "offset": [0, 15] },
+    ]);
+    ok(&mut a, "stamp_group", json!({ "doc": doc, "page": 1, "at": [100, 150], "items": items, "author": "Ada" }));
+    let list = ok(&mut a, "comment_list", json!({ "doc": doc }));
+    assert_eq!(list["count"], 2, "{list}");
+    let rects: Vec<Vec<f64>> =
+        list["comments"].as_array().unwrap().iter().map(|c| c["rect"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect()).collect();
+    let close = |r: &[f64], want: [f64; 4]| r.iter().zip(want).all(|(a, b)| (a - b).abs() < 0.05);
+    // The stamp at its natural 120 × 60 pt, centred on the anchor; the signature 60 pt wide, in
+    // its 3:1 proportions, 15 pt lower (displayed points from the top-left corner).
+    assert!(close(&rects[0], [40.0, 120.0, 160.0, 180.0]), "{rects:?}");
+    assert!(close(&rects[1], [70.0, 155.0, 130.0, 175.0]), "{rects:?}");
+    assert_eq!(list["comments"][0]["contents"], "Company");
+    assert_eq!(list["comments"][1]["author"], "Ada");
+    // One undo step for the whole group.
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": doc }))["undone"], "Add stamp and signature");
+    assert_eq!(ok(&mut a, "comment_list", json!({ "doc": doc }))["count"], 0);
+    ok(&mut a, "edit_redo", json!({ "doc": doc }));
+    assert_eq!(ok(&mut a, "comment_list", json!({ "doc": doc }))["count"], 2);
+    // Bad groups are refused and change nothing: no items, a width out of range, a one-number
+    // offset, a file that is not an image, a missing file, a file outside --root.
+    for (args, kind) in [
+        (json!({ "doc": doc, "page": 1, "at": [10, 10], "items": [] }), "invalid"),
+        (json!({ "doc": doc, "page": 1, "at": [10, 10], "items": [{ "path": "stamp.png", "width": 0 }] }), "invalid"),
+        (json!({ "doc": doc, "page": 1, "at": [10, 10], "items": [{ "path": "stamp.png", "offset": [1] }] }), "invalid"),
+        (json!({ "doc": doc, "page": 1, "at": [10, 10], "items": [{ "path": "stamp.png" }, { "path": "broken.png" }] }), "failed"),
+        (json!({ "doc": doc, "page": 1, "at": [10, 10], "items": [{ "path": "nope.png" }] }), "failed"),
+        (json!({ "doc": doc, "page": 1, "at": [10, 10], "items": [{ "path": "../outside.png" }] }), "any"),
+    ] {
+        let e = err(&mut a, "stamp_group", args.clone());
+        match kind {
+            "invalid" => assert!(matches!(e, ToolError::InvalidArgs(_)), "{args}: {e}"),
+            "failed" => assert!(matches!(e, ToolError::Failed(_)), "{args}: {e}"),
+            _ => {}
+        }
+        assert_eq!(ok(&mut a, "comment_list", json!({ "doc": doc }))["count"], 2, "{args}: a refused group changes nothing");
+    }
+    // The image stamps are picture stamps: their image and background layers can be previewed
+    // for live placement, like Fill & Sign signatures.
+    let image = a.call("comment_image_preview", &json!({ "doc": doc, "page": 1, "index": 2, "layer": "image" })).unwrap();
+    let [Content::Json(meta), Content::Png { width, height, .. }] = image.as_slice() else { panic!("labeled image layer") };
+    assert_eq!(meta["layer"], "image");
+    assert_eq!((*width, *height), (90, 30));
+    // Saved and reopened, both stamps are still there with their pictures.
+    ok(&mut a, "doc_save", json!({ "doc": doc, "path": "out/group.pdf" }));
+    let again = ok(&mut a, "doc_open", json!({ "path": "out/group.pdf" }))["doc"].as_u64().unwrap();
+    let saved = ok(&mut a, "comment_list", json!({ "doc": again }));
+    assert_eq!(saved["count"], 2, "{saved}");
+    assert!(saved["comments"].as_array().unwrap().iter().all(|c| c["type"] == "Stamp"), "{saved}");
+    let preview = a.call("comment_image_preview", &json!({ "doc": again, "page": 1, "index": 1, "layer": "image" })).unwrap();
+    let [Content::Json(_), Content::Png { width, height, .. }] = preview.as_slice() else { panic!("labeled image layer") };
+    assert_eq!((*width, *height), (120, 60));
+}
+
 #[test]
 fn bookmark_split_with_equal_titles_keeps_every_part() {
     let dir = workdir("organize_dup_titles");

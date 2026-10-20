@@ -2750,6 +2750,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         | QuickTool::EditText
         | QuickTool::Stamp(_)
         | QuickTool::CustomStamp(_)
+        | QuickTool::StampPreset(_)
         | QuickTool::Link
         | QuickTool::SignArea { .. }
         | QuickTool::MarqueeZoom
@@ -2779,6 +2780,12 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let mut image_action: Option<crate::edit_text_ui::ImageAction> = None;
     let custom_stamp = match app.quick_tool {
         QuickTool::CustomStamp(i) => app.custom_stamps.get(i).cloned(),
+        _ => None,
+    };
+    // A preset: its stamp and signature are placed together at the click (the library's
+    // entries hold their pictures by reference, so this copy is cheap).
+    let stamp_preset = match app.quick_tool {
+        QuickTool::StampPreset(i) => app.stamp_presets.get(i).cloned().map(|p| (p, app.custom_stamps.clone())),
         _ => None,
     };
     let mut open_signature = false;
@@ -3077,18 +3084,40 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
                 if resp.clicked() {
-                    // Centred on the click at its natural size (the engine sizes it).
+                    if !cs.configured() {
+                        // A slot without its picture places nothing: the palette says what to provide.
+                        refused = Some(crate::i18n::fmt(tl!("{name} has no picture yet. Choose one in the stamps palette."), &[("name", &cs.name)]));
+                    } else {
+                        // Centred on the click at its natural size (the engine sizes it).
+                        let (vx, vy) = xf.screen_to_view(p);
+                        let u = info.pages[i].view_to_user(vx, vy);
+                        let (x, y) = (u[0] as f64, u[1] as f64);
+                        view.pending_edit = Some(pdfcraft_engine::Edit::AddCustomStamp {
+                            page: i,
+                            rect: [x, y, x, y],
+                            name: cs.name.clone(),
+                            file: cs.mark_file(),
+                            author: author.clone(),
+                        });
+                        stamp_placed = true;
+                    }
+                }
+            }
+            if let Some((preset, library)) = stamp_preset.as_ref()
+                && allowed
+                && let Some(p) = ui.input(|inp| inp.pointer.hover_pos()).filter(|p| xf.rect.contains(*p))
+            {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+                if resp.clicked() {
+                    // The stamp centred on the click, the signature laid out from it: one undo step.
                     let (vx, vy) = xf.screen_to_view(p);
-                    let u = info.pages[i].view_to_user(vx, vy);
-                    let (x, y) = (u[0] as f64, u[1] as f64);
-                    view.pending_edit = Some(pdfcraft_engine::Edit::AddCustomStamp {
-                        page: i,
-                        rect: [x, y, x, y],
-                        name: cs.name.clone(),
-                        file: pdfcraft_engine::MarkFile { name: cs.file.clone(), bytes: cs.data.clone(), page: cs.page },
-                        author: author.clone(),
-                    });
-                    stamp_placed = true;
+                    match crate::stamps_ui::preset_edit(preset, library, i, &info.pages[i], [f64::from(vx), f64::from(vy)], &author) {
+                        Ok(edit) => {
+                            view.pending_edit = Some(edit);
+                            stamp_placed = true;
+                        }
+                        Err(why) => refused = Some(why),
+                    }
                 }
             }
             // Over a mark already placed, the Fill & Sign tool picks it up (comments, below).

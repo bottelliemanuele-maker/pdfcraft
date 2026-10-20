@@ -2435,3 +2435,27 @@ animation effects	Off	Aus
 	Make properties default	Eigenschaften als Standard festlegen
 	Pages selected	Ausgewählte Seiten
 	Page properties	Seiteneigenschaften
+	Add Graphic Signature	Grafische Unterschrift hinzufügen
+	Add graphic signature…	Grafische Unterschrift hinzufügen…
+	Delete preset	Vorlage löschen
+	Delete signature	Unterschrift löschen
+	Graphic signatures	Grafische Unterschriften
+	Layout:	Anordnung:
+	Needs the picture of {name}	Bild von {name} fehlt
+	New Preset	Neue Vorlage
+	New preset…	Neue Vorlage…
+	No picture yet	Noch kein Bild
+	Not configured	Nicht eingerichtet
+	Presets	Vorlagen
+	Signature:	Unterschrift:
+	Stamp:	Stempel:
+	the picture has no size	das Bild hat keine Größe
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: ein Stempel oder eine Unterschrift dieser Vorlage ist nicht mehr in der Bibliothek.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} hat noch kein Bild. Wählen Sie eines in der Stempelpalette.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Eine grafische Unterschrift ist das Bild einer handschriftlichen Unterschrift. Sie ist keine zertifizierte digitale Signatur: dafür verwenden Sie „Digital signieren“.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Stellen Sie ein PNG oder JPEG des Originals bereit, am besten mit transparentem Hintergrund.
+	A preset places a stamp and a graphic signature together with one click.	Eine Vorlage setzt einen Stempel und eine grafische Unterschrift mit einem Klick zusammen ein.
+	Signature across the stamp	Unterschrift über dem Stempel
+	Signature below the stamp	Unterschrift unter dem Stempel
+	Signature beside the stamp	Unterschrift neben dem Stempel
+	Add stamp and signature	Stempel und Unterschrift hinzufügen

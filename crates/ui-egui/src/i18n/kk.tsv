@@ -2432,3 +2432,27 @@ animation effects	Off	Өшірулі
 	Make properties default	Қасиеттерді әдепкі ету
 	Pages selected	Таңдалған беттер
 	Page properties	Бет қасиеттері
+	Add Graphic Signature	Графикалық қолтаңба қосу
+	Add graphic signature…	Графикалық қолтаңба қосу…
+	Delete preset	Жиынды жою
+	Delete signature	Қолтаңбаны жою
+	Graphic signatures	Графикалық қолтаңбалар
+	Layout:	Орналасу:
+	Needs the picture of {name}	{name} суреті жоқ
+	New Preset	Жаңа жиын
+	New preset…	Жаңа жиын…
+	No picture yet	Сурет әлі жоқ
+	Not configured	Бапталмаған
+	Presets	Жиындар
+	Signature:	Қолтаңба:
+	Stamp:	Мөр:
+	the picture has no size	суреттің өлшемі жоқ
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: осы жиын пайдаланатын мөр немесе қолтаңба кітапханада енді жоқ.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} суреті әлі жоқ. Оны мөрлер палитрасынан таңдаңыз.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Графикалық қолтаңба — қолмен қойылған қолтаңбаның суреті. Бұл сертификатталған цифрлық қолтаңба емес: ол үшін «Цифрлық түрде қол қою» командасын пайдаланыңыз.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Түпнұсқаның PNG немесе JPEG суретін беріңіз, мөлдір фонмен болса жақсы.
+	A preset places a stamp and a graphic signature together with one click.	Жиын мөр мен графикалық қолтаңбаны бір шертумен бірге қояды.
+	Signature across the stamp	Қолтаңба мөрдің үстінде
+	Signature below the stamp	Қолтаңба мөрдің астында
+	Signature beside the stamp	Қолтаңба мөрдің жанында
+	Add stamp and signature	Мөр мен қолтаңба қосу

@@ -2456,3 +2456,27 @@ animation effects	Off	Вимкнено
 	Make properties default	Зробити властивості типовими
 	Pages selected	Вибрані сторінки
 	Page properties	Властивості сторінки
+	Add Graphic Signature	Додати графічний підпис
+	Add graphic signature…	Додати графічний підпис…
+	Delete preset	Видалити набір
+	Delete signature	Видалити підпис
+	Graphic signatures	Графічні підписи
+	Layout:	Розташування:
+	Needs the picture of {name}	Немає зображення для {name}
+	New Preset	Новий набір
+	New preset…	Новий набір…
+	No picture yet	Зображення ще немає
+	Not configured	Не налаштовано
+	Presets	Набори
+	Signature:	Підпис:
+	Stamp:	Штамп:
+	the picture has no size	зображення не має розміру
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: штампа або підпису з цього набору вже немає в бібліотеці.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} ще не має зображення. Виберіть його на палітрі штампів.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Графічний підпис — це зображення рукописного підпису. Це не сертифікований цифровий підпис: для нього скористайтеся «Підписати цифровим підписом».
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Надайте PNG або JPEG оригіналу, бажано з прозорим тлом.
+	A preset places a stamp and a graphic signature together with one click.	Набір ставить штамп і графічний підпис разом одним клацанням.
+	Signature across the stamp	Підпис поверх штампа
+	Signature below the stamp	Підпис під штампом
+	Signature beside the stamp	Підпис поруч зі штампом
+	Add stamp and signature	Додати штамп і підпис

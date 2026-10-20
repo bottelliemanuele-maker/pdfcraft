@@ -2687,3 +2687,27 @@ key	Space	Space
 # Historical snapshot notice bar (View signed version / View revision).
 	You are viewing the signed version of “{from}” (revision {rev}). It is a snapshot: changes here won't affect the original.	Bạn đang xem phiên bản đã ký của “{from}” (bản sửa đổi {rev}). Đây là ảnh nhanh: các thay đổi ở đây không được áp dụng đến bản gốc.
 	You are viewing revision {rev} of “{from}”. It is a snapshot: changes here won't affect the original.	Bạn đang xem bản sửa đổi {rev} của “{from}”. Đây là ảnh nhanh: các thay đổi ở đây không được áp dụng đến bản gốc.
+	Add Graphic Signature	Thêm chữ ký đồ họa
+	Add graphic signature…	Thêm chữ ký đồ họa…
+	Delete preset	Xóa bộ cài sẵn
+	Delete signature	Xóa chữ ký
+	Graphic signatures	Chữ ký đồ họa
+	Layout:	Bố cục:
+	Needs the picture of {name}	Thiếu hình của {name}
+	New Preset	Bộ cài sẵn mới
+	New preset…	Bộ cài sẵn mới…
+	No picture yet	Chưa có hình
+	Not configured	Chưa thiết lập
+	Presets	Bộ cài sẵn
+	Signature:	Chữ ký:
+	Stamp:	Con dấu:
+	the picture has no size	hình không có kích thước
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: một con dấu hoặc chữ ký mà bộ này dùng không còn trong thư viện.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} chưa có hình. Hãy chọn một hình trong bảng con dấu.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Chữ ký đồ họa là hình ảnh của một chữ ký viết tay. Đây không phải là chữ ký số được chứng nhận: để ký số, hãy dùng "Ký số".
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Hãy cung cấp một tệp PNG hoặc JPEG của bản gốc, tốt nhất là có nền trong suốt.
+	A preset places a stamp and a graphic signature together with one click.	Một bộ cài sẵn đặt một con dấu và một chữ ký đồ họa cùng lúc chỉ với một lần bấm.
+	Signature across the stamp	Chữ ký trên con dấu
+	Signature below the stamp	Chữ ký dưới con dấu
+	Signature beside the stamp	Chữ ký bên cạnh con dấu
+	Add stamp and signature	Thêm con dấu và chữ ký

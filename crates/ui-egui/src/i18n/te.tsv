@@ -2343,3 +2343,27 @@ animation effects	Off	ఆఫ్
 	Make properties default	లక్షణాలను డిఫాల్ట్‌గా చేయి
 	Pages selected	ఎంచుకున్న పేజీలు
 	Page properties	పేజీ లక్షణాలు
+	Add Graphic Signature	గ్రాఫిక్ సంతకం జోడించు
+	Add graphic signature…	గ్రాఫిక్ సంతకం జోడించు…
+	Delete preset	ప్రీసెట్‌ను తొలగించు
+	Delete signature	సంతకాన్ని తొలగించు
+	Graphic signatures	గ్రాఫిక్ సంతకాలు
+	Layout:	అమరిక:
+	Needs the picture of {name}	{name} చిత్రం లేదు
+	New Preset	కొత్త ప్రీసెట్
+	New preset…	కొత్త ప్రీసెట్…
+	No picture yet	ఇంకా చిత్రం లేదు
+	Not configured	సెట్ చేయలేదు
+	Presets	ప్రీసెట్‌లు
+	Signature:	సంతకం:
+	Stamp:	స్టాంప్:
+	the picture has no size	చిత్రానికి పరిమాణం లేదు
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: ఇది ఉపయోగించే స్టాంప్ లేదా సంతకం ఇకపై లైబ్రరీలో లేదు.
+	{name} has no picture yet. Choose one in the stamps palette.	{name}కు ఇంకా చిత్రం లేదు. స్టాంప్ ప్యాలెట్‌లో ఒకదాన్ని ఎంచుకోండి.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	గ్రాఫిక్ సంతకం అంటే చేతితో వేసిన సంతకం చిత్రం. ఇది ధృవీకరించిన డిజిటల్ సంతకం కాదు: దానికి "డిజిటల్‌గా సంతకం చేయి" వాడండి.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	అసలు దాని PNG లేదా JPEG ఇవ్వండి, పారదర్శక నేపథ్యంతో ఉంటే మంచిది.
+	A preset places a stamp and a graphic signature together with one click.	ప్రీసెట్ ఒక స్టాంప్‌ను, ఒక గ్రాఫిక్ సంతకాన్ని ఒకే క్లిక్‌తో కలిపి ఉంచుతుంది.
+	Signature across the stamp	స్టాంప్ మీద సంతకం
+	Signature below the stamp	స్టాంప్ కింద సంతకం
+	Signature beside the stamp	స్టాంప్ పక్కన సంతకం
+	Add stamp and signature	స్టాంప్ మరియు సంతకం జోడించు

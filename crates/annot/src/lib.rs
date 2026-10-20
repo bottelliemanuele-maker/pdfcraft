@@ -778,22 +778,22 @@ fn fill_sign_shape(shape: &Shape) -> bool {
     }
 }
 
-/// The embedded image of a Fill & Sign image signature or initials (0-based target).
-/// Other stamps have appearances that can't be represented by this image alone.
-pub fn signature_image(doc: &Document, page: usize, index: usize) -> Result<Option<ObjRef>, AnnotError> {
+/// The embedded image of a picture stamp whose appearance is that image alone, filling its
+/// rectangle (0-based target): a Fill & Sign image signature or initials, or a custom stamp made
+/// from an image file (`/PCPictureImage true`). `None` for other comments, including stamps made
+/// from a PDF page, whose appearance a single image can't stand for.
+pub fn picture_image(doc: &Document, page: usize, index: usize) -> Result<Option<ObjRef>, AnnotError> {
     let p = page_ref(doc, page)?;
     let list = annots(doc, p);
     let entry = list.get(index).ok_or(AnnotError::NoSuchAnnotation { page, index })?;
     let obj = doc.resolve(entry);
     let Some(d) = obj.as_dict() else { return Ok(None) };
-    Ok((d.name(b"Subtype") == Some(b"Stamp")
-        && matches!(d.name(b"Name"), Some(b"PCCustomSignature" | b"PCCustomInitials"))
-        && matches!(d.get(b"PCPictureImage"), Some(Object::Bool(true))))
-    .then(|| d.reference(b"PCPicture"))
-    .flatten())
+    Ok((d.name(b"Subtype") == Some(b"Stamp") && matches!(d.get(b"PCPictureImage"), Some(Object::Bool(true))))
+        .then(|| d.reference(b"PCPicture"))
+        .flatten())
 }
 
-/// The page `/Rotate` the picture of the image signature at `(page, index)` is drawn turned back
+/// The page `/Rotate` the picture of the image stamp at `(page, index)` is drawn turned back
 /// by, so it reads upright on a page shown that way: 0 for one added to an unturned page, or by
 /// another app. The picture appears turned by the page's current rotation less this.
 pub fn picture_rotation(doc: &Document, page: usize, index: usize) -> Result<i64, AnnotError> {
@@ -1109,9 +1109,11 @@ pub fn add_annotation(doc: &mut Document, new: &NewAnnotation, meta: &Meta) -> R
             d.set(b"PCPicture".to_vec(), Object::Ref(*picture));
             d.set(b"PCPictureImage".to_vec(), Object::Bool(*image));
             d.set(b"PCPictureSize".to_vec(), num_array(&[size.0, size.1]));
-            // An image signature's rectangle is in user space; on a turned page its appearance is
-            // turned back (see `appearance::build`), so it reads upright as displayed.
-            if *image && matches!(clean.as_str(), "Signature" | "Initials") {
+            // An image's rectangle is in user space; on a turned page its appearance is turned
+            // back (see `appearance::build`), so it reads upright as displayed. Recorded for
+            // every picture that is an image (a signature, initials or a custom stamp), so
+            // [`picture_rotation`] can say how the image is shown.
+            if *image {
                 let turn = pdfcraft_model::pages(doc).get(new.page).map_or(0, |p| p.rotation(doc));
                 if turn != 0 {
                     d.set(b"PCPictureRotate".to_vec(), Object::Int(turn));

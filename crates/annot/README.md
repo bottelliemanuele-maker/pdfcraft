@@ -30,7 +30,7 @@ set_review_state(&mut doc, page, index, ReviewState::Accepted, "Ada", &meta)?;
 move_annotation(&mut doc, page, index, dx, dy, &meta)?;
 set_style(&mut doc, page, index, Some(rgb), Some(0.5), Some(2.0), &meta)?;
 delete_annotation(&mut doc, page, index)?;
-signature_image(&doc, page, index)?; // embedded image XObject of Fill & Sign signature/initials
+picture_image(&doc, page, index)?; // the image XObject of a picture stamp made from an image (a Fill & Sign signature, initials or a custom stamp)
 ```
 
 A comment is addressed by `(page, index in /Annots)`, the same pair
@@ -50,7 +50,9 @@ deterministic; the engine supplies them.
 - Picture stamps (a natural-size or explicit-rectangle image, a PDF page, or an image
   signature) and PdfCraft's rubber stamps counterrotate their appearance on rotated pages, so
   the picture or label reads upright as the page is displayed. Restyling a picture stamp keeps
-  that appearance matrix. The rotation is the page's `/Rotate` at placement.
+  that appearance matrix. The rotation is the page's `/Rotate` at placement; every stamp made
+  from an image records it as `/PCPictureRotate`, which `picture_rotation` reads back so a live
+  preview can draw the image the way the page shows it.
 
 ## Not yet
 

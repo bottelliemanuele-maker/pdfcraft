@@ -8,7 +8,8 @@ use pdfcraft_render::PageInfo;
 
 use crate::{Document, Edit, MarkFile, guard};
 
-/// Read-only layers for interactive movement: the page without this signature, and its image.
+/// Read-only layers for interactive movement of a picture stamp made from an image (a Fill &
+/// Sign signature or initials, or a custom stamp): the page without it, and its image.
 /// Preparing them never changes the working bytes, dirty flag or undo history.
 pub struct ImageSignaturePreview {
     pub image: SignatureImage,
@@ -43,12 +44,13 @@ impl ImageSignaturePreview {
 }
 
 impl Document {
-    /// Prepare the actual embedded signature, including alpha, and an independent background.
+    /// Prepare the embedded image of a picture stamp (a signature, initials or a custom stamp made
+    /// from an image), including alpha, and an independent background. `None` for other comments.
     /// A cheap COS clone excludes only this annotation; other page content remains visible.
     pub fn image_signature_preview(&self, page: usize, index: usize) -> Result<Option<ImageSignaturePreview>, String> {
         guard(|| {
             let editor = self.editor.as_ref().ok_or("the document can't be read")?;
-            let Some(picture) = pdfcraft_annot::signature_image(&editor.cos, page, index).map_err(|e| e.to_string())? else { return Ok(None) };
+            let Some(picture) = pdfcraft_annot::picture_image(&editor.cos, page, index).map_err(|e| e.to_string())? else { return Ok(None) };
             let obj = editor.cos.get(picture);
             let pdfcraft_cos::Object::Stream(s) = &*obj else { return Err("the signature image is damaged".into()) };
             let (w, h) = (s.dict.int(b"Width").unwrap_or(0), s.dict.int(b"Height").unwrap_or(0));
@@ -360,7 +362,7 @@ mod tests {
         session.apply(id, image.edit(0, &page(0), [20.0, 100.0], false, "Ada").unwrap()).unwrap();
         let doc = session.doc_mut(id).unwrap();
         let cos = &mut doc.editor.as_mut().unwrap().cos;
-        let picture = pdfcraft_annot::signature_image(cos, 0, 0).unwrap().unwrap();
+        let picture = pdfcraft_annot::picture_image(cos, 0, 0).unwrap().unwrap();
         let pdfcraft_cos::Object::Stream(mut stream) = (*cos.get(picture)).clone() else { panic!() };
         stream.dict.set(b"Width".to_vec(), pdfcraft_cos::Object::Int(i64::MAX));
         cos.set(picture, pdfcraft_cos::Object::Stream(stream));

@@ -60,7 +60,7 @@ mod ocr_ui;
 mod optimize_ui;
 mod search_ui;
 mod sign_ui;
-mod stamps_ui;
+pub mod stamps_ui;
 mod standards_ui;
 mod zoom_snap;
 /// Header & footer / watermark / background dialog types (tests and automation).
@@ -235,6 +235,8 @@ pub enum QuickTool {
     Stamp(pdfcraft_engine::StampKind),
     /// A custom stamp from the library (its index).
     CustomStamp(usize),
+    /// A preset from the stamp library (its index): a stamp and a graphic signature together.
+    StampPreset(usize),
     /// Edit a PDF ▸ Link: draw link areas, select and edit links.
     Link,
     /// Use a certificate ▸ Digitally sign / Certify (visible): drag the signature's rectangle.
@@ -346,8 +348,10 @@ pub enum Dialog {
     ActionWizard,
     /// Standards ▸ PDF/A.
     PdfA,
-    /// Custom stamps ▸ Create.
+    /// Custom stamps ▸ Create (a stamp or a graphic signature).
     CreateStamp,
+    /// Stamp library ▸ New preset.
+    CreatePreset,
     /// Prepare for accessibility ▸ Add alternate text.
     AltText,
     /// PDF Optimizer ▸ Audit space usage (then back to the optimizer).
@@ -702,9 +706,14 @@ pub struct PdfCraftApp {
     pub(crate) combine_thumbs: combine_grid::Thumbs,
     /// Images waiting for the resolution choice (released on cancel).
     pub image_import: Option<create_ui::ImageImport>,
-    /// The custom stamp library, and the stamp being created.
+    /// The stamp library (custom stamps and graphic signatures), and the entry being created.
     pub custom_stamps: Vec<stamps_ui::CustomStamp>,
     pub stamp_draft: stamps_ui::StampDraft,
+    /// The library's presets (a stamp with a signature), and the preset being created.
+    pub stamp_presets: Vec<stamps_ui::StampPreset>,
+    pub preset_draft: stamps_ui::PresetDraft,
+    /// The palette's small pictures of the library's entries.
+    pub(crate) stamp_thumbs: stamps_ui::Thumbnails,
     /// PDF Optimizer choices.
     pub optimize_draft: OptimizeDraft,
     /// The running optimization (Optimize PDF ▸ Advanced optimization).
@@ -1017,6 +1026,9 @@ impl PdfCraftApp {
             image_import: None,
             custom_stamps: Vec::new(),
             stamp_draft: Default::default(),
+            stamp_presets: Vec::new(),
+            preset_draft: Default::default(),
+            stamp_thumbs: Default::default(),
             optimize_draft: OptimizeDraft::default(),
             optimize_run: None,
             progress_notice: None,
@@ -2307,6 +2319,7 @@ impl PdfCraftApp {
         });
         // Set apart: one more key inside the macro above passes serde_json's recursion limit.
         v["redact_prefs"] = self.redact_defaults.to_json();
+        v["stamp_presets"] = stamps_ui::encode_presets(&self.stamp_presets);
         // Set outside json! above, which is at serde_json's macro recursion limit.
         v["hide_empty_highlight_hover"] = serde_json::Value::Bool(self.comment_prefs.hide_empty_highlight_hover);
         v.to_string()
@@ -2461,6 +2474,7 @@ impl PdfCraftApp {
             self.digital_ids = ids;
         }
         self.custom_stamps = stamps_ui::decode(&v["custom_stamps"]);
+        self.stamp_presets = stamps_ui::decode_presets(&v["stamp_presets"]);
         self.custom_actions = actions_ui::decode(&v["actions"]);
         if let Some(on) = v["javascript"].as_bool() {
             self.session.set_javascript(on);
@@ -2701,6 +2715,14 @@ impl PdfCraftApp {
                             return Err(format!("there are {} custom stamps", self.custom_stamps.len()));
                         }
                         QuickTool::CustomStamp(i)
+                    }
+                    preset if preset.starts_with("stamp-preset-") => {
+                        let i: usize =
+                            preset.strip_prefix("stamp-preset-").unwrap_or_default().parse().map_err(|_| format!("bad preset {preset}"))?;
+                        if i >= self.stamp_presets.len() {
+                            return Err(format!("there are {} stamp presets", self.stamp_presets.len()));
+                        }
+                        QuickTool::StampPreset(i)
                     }
                     stamp if stamp.starts_with("stamp-") => QuickTool::Stamp(
                         pdfcraft_engine::StampKind::ALL

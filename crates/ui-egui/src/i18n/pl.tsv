@@ -2410,3 +2410,27 @@ animation effects	Off	Wyłączone
 	Make properties default	Ustaw właściwości jako domyślne
 	Pages selected	Zaznaczone strony
 	Page properties	Właściwości strony
+	Add Graphic Signature	Dodaj podpis graficzny
+	Add graphic signature…	Dodaj podpis graficzny…
+	Delete preset	Usuń zestaw
+	Delete signature	Usuń podpis
+	Graphic signatures	Podpisy graficzne
+	Layout:	Układ:
+	Needs the picture of {name}	Brakuje obrazu dla {name}
+	New Preset	Nowy zestaw
+	New preset…	Nowy zestaw…
+	No picture yet	Brak obrazu
+	Not configured	Nieskonfigurowane
+	Presets	Zestawy
+	Signature:	Podpis:
+	Stamp:	Stempel:
+	the picture has no size	obraz nie ma rozmiaru
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: stempla lub podpisu z tego zestawu nie ma już w bibliotece.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} nie ma jeszcze obrazu. Wybierz go w palecie stempli.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Podpis graficzny to obraz podpisu odręcznego. Nie jest to certyfikowany podpis cyfrowy: do tego służy „Podpisz cyfrowo”.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Dostarcz PNG lub JPEG oryginału, najlepiej z przezroczystym tłem.
+	A preset places a stamp and a graphic signature together with one click.	Zestaw umieszcza stempel i podpis graficzny razem jednym kliknięciem.
+	Signature across the stamp	Podpis na stemplu
+	Signature below the stamp	Podpis pod stemplem
+	Signature beside the stamp	Podpis obok stempla
+	Add stamp and signature	Dodaj stempel i podpis

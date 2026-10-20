@@ -2646,3 +2646,27 @@ certificate	Key usage	Utilizzo chiave
 certificate	Self-signed	Autofirmato
 certificate	SHA-1 digest	Impronta SHA-1
 certificate	SHA-256 digest	Impronta SHA-256
+	Add Graphic Signature	Aggiungi firma grafica
+	Add graphic signature…	Aggiungi firma grafica…
+	Delete preset	Elimina preset
+	Delete signature	Elimina firma
+	Graphic signatures	Firme grafiche
+	Layout:	Disposizione:
+	Needs the picture of {name}	Manca l'immagine di {name}
+	New Preset	Nuovo preset
+	New preset…	Nuovo preset…
+	No picture yet	Nessuna immagine
+	Not configured	Non configurato
+	Presets	Preset
+	Signature:	Firma:
+	Stamp:	Timbro:
+	the picture has no size	l'immagine non ha dimensioni
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: un timbro o una firma che usa non è più nella libreria.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} non ha ancora un'immagine. Scegline una nella tavolozza dei timbri.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Una firma grafica è l'immagine di una firma autografa. Non è una firma digitale certificata: per quella usa Firma digitalmente.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Fornisci un PNG o JPEG dell'originale, preferibilmente con sfondo trasparente.
+	A preset places a stamp and a graphic signature together with one click.	Un preset inserisce un timbro e una firma grafica insieme con un solo clic.
+	Signature across the stamp	Firma sopra il timbro
+	Signature below the stamp	Firma sotto il timbro
+	Signature beside the stamp	Firma accanto al timbro
+	Add stamp and signature	Aggiungi timbro e firma

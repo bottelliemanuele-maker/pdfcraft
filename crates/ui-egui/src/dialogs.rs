@@ -75,6 +75,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let mut compare_now = false;
     let mut images_now = false;
     let mut stamp_now = false;
+    let mut preset_now = false;
     let mut alt_now = false;
     let t = Tokens::get(ctx);
     let mut close = false;
@@ -937,6 +938,12 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 close = save || cancel;
                 return;
             }
+            Dialog::CreatePreset => {
+                let (save, cancel) = crate::stamps_ui::preset_body(ui, app, &t);
+                preset_now = save;
+                close = save || cancel;
+                return;
+            }
             Dialog::PdfA => {
                 close = crate::standards_ui::body(ui, app, &t);
                 return;
@@ -1401,6 +1408,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     }
     if stamp_now {
         app.save_custom_stamp();
+    }
+    if preset_now {
+        app.save_stamp_preset();
     }
     if images_now {
         app.finish_image_import();

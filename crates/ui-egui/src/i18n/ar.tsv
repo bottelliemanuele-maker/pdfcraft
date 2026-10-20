@@ -2711,3 +2711,27 @@ certificate	Version	الإصدار
 	Make properties default	جعل الخصائص افتراضية
 	Pages selected	الصفحات المحددة
 	Page properties	خصائص الصفحة
+	Add Graphic Signature	إضافة توقيع رسومي
+	Add graphic signature…	إضافة توقيع رسومي…
+	Delete preset	حذف الإعداد المسبق
+	Delete signature	حذف التوقيع
+	Graphic signatures	التواقيع الرسومية
+	Layout:	التخطيط:
+	Needs the picture of {name}	صورة {name} مفقودة
+	New Preset	إعداد مسبق جديد
+	New preset…	إعداد مسبق جديد…
+	No picture yet	لا توجد صورة بعد
+	Not configured	غير مُهيّأ
+	Presets	الإعدادات المسبقة
+	Signature:	التوقيع:
+	Stamp:	الختم:
+	the picture has no size	الصورة بلا حجم
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: ختم أو توقيع يستخدمه لم يعد في المكتبة.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} ليس له صورة بعد. اختر واحدة من لوحة الأختام.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	التوقيع الرسومي صورة لتوقيع بخط اليد. وهو ليس توقيعًا رقميًا معتمدًا: لذلك استخدم «توقيع رقمي».
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	قدّم صورة PNG أو JPEG للأصل، ويُفضَّل أن تكون بخلفية شفافة.
+	A preset places a stamp and a graphic signature together with one click.	يضع الإعداد المسبق ختمًا وتوقيعًا رسوميًا معًا بنقرة واحدة.
+	Signature across the stamp	التوقيع فوق الختم
+	Signature below the stamp	التوقيع تحت الختم
+	Signature beside the stamp	التوقيع بجانب الختم
+	Add stamp and signature	إضافة ختم وتوقيع

@@ -2685,3 +2685,27 @@ key	Space	Tarpas
 	The password must have at least 6 characters.	Slaptažodį turi sudaryti bent 6 simboliai.
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Šis failas diske pasikeitė. Įkelkite jį iš naujo, kad pamatytumėte naują versiją; neįrašyti pakeitimai bus prarasti.
 theme	Appearance	Išvaizda
+	Add Graphic Signature	Pridėti grafinį parašą
+	Add graphic signature…	Pridėti grafinį parašą…
+	Delete preset	Naikinti rinkinį
+	Delete signature	Naikinti parašą
+	Graphic signatures	Grafiniai parašai
+	Layout:	Išdėstymas:
+	Needs the picture of {name}	Trūksta {name} paveikslo
+	New Preset	Naujas rinkinys
+	New preset…	Naujas rinkinys…
+	No picture yet	Paveikslo dar nėra
+	Not configured	Nesukonfigūruota
+	Presets	Rinkiniai
+	Signature:	Parašas:
+	Stamp:	Antspaudas:
+	the picture has no size	paveikslas neturi dydžio
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: šio rinkinio antspaudo arba parašo bibliotekoje nebėra.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} dar neturi paveikslo. Pasirinkite jį antspaudų paletėje.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Grafinis parašas yra ranka rašyto parašo paveikslas. Tai nėra sertifikuotas skaitmeninis parašas: tam naudokite „Pasirašyti skaitmeniniu būdu“.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Pateikite originalo PNG arba JPEG, geriausia su permatomu fonu.
+	A preset places a stamp and a graphic signature together with one click.	Rinkinys vienu spustelėjimu padeda antspaudą ir grafinį parašą kartu.
+	Signature across the stamp	Parašas ant antspaudo
+	Signature below the stamp	Parašas po antspaudu
+	Signature beside the stamp	Parašas šalia antspaudo
+	Add stamp and signature	Pridėti antspaudą ir parašą

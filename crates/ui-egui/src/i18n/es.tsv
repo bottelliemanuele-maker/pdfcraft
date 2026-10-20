@@ -2574,3 +2574,27 @@ animation effects	Off	Desactivados
 # Historical snapshot notice bar (View signed version / View revision).
 	You are viewing the signed version of “{from}” (revision {rev}). It is a snapshot: changes here won't affect the original.	Estás viendo la versión firmada de «{from}» (revisión {rev}). Es una instantánea: los cambios aquí no afectarán al original.
 	You are viewing revision {rev} of “{from}”. It is a snapshot: changes here won't affect the original.	Estás viendo la revisión {rev} de «{from}». Es una instantánea: los cambios aquí no afectarán al original.
+	Add Graphic Signature	Añadir firma gráfica
+	Add graphic signature…	Añadir firma gráfica…
+	Delete preset	Eliminar preajuste
+	Delete signature	Eliminar firma
+	Graphic signatures	Firmas gráficas
+	Layout:	Disposición:
+	Needs the picture of {name}	Falta la imagen de {name}
+	New Preset	Nuevo preajuste
+	New preset…	Nuevo preajuste…
+	No picture yet	Aún sin imagen
+	Not configured	Sin configurar
+	Presets	Preajustes
+	Signature:	Firma:
+	Stamp:	Sello:
+	the picture has no size	la imagen no tiene tamaño
+	{name}: a stamp or signature it uses is no longer in the library.	{name}: un sello o una firma que usa ya no está en la biblioteca.
+	{name} has no picture yet. Choose one in the stamps palette.	{name} aún no tiene imagen. Elige una en la paleta de sellos.
+	A graphic signature is a picture of a handwritten signature. It is not a certified digital signature: for that, use Digitally sign.	Una firma gráfica es la imagen de una firma manuscrita. No es una firma digital certificada: para eso, usa Firmar digitalmente.
+	Provide a PNG or JPEG of the original, ideally with a transparent background.	Proporciona un PNG o JPEG del original, preferiblemente con fondo transparente.
+	A preset places a stamp and a graphic signature together with one click.	Un preajuste coloca un sello y una firma gráfica juntos con un clic.
+	Signature across the stamp	Firma sobre el sello
+	Signature below the stamp	Firma debajo del sello
+	Signature beside the stamp	Firma junto al sello
+	Add stamp and signature	Añadir sello y firma
