@@ -714,6 +714,9 @@ pub struct PdfCraftApp {
     pub preset_draft: stamps_ui::PresetDraft,
     /// The palette's small pictures of the library's entries.
     pub(crate) stamp_thumbs: stamps_ui::Thumbnails,
+    /// Whether the stamps palette shows PdfCraft's standard stamps; `None` shows them only while
+    /// the library is empty.
+    pub standard_stamps_open: Option<bool>,
     /// PDF Optimizer choices.
     pub optimize_draft: OptimizeDraft,
     /// The running optimization (Optimize PDF ▸ Advanced optimization).
@@ -1029,6 +1032,7 @@ impl PdfCraftApp {
             stamp_presets: Vec::new(),
             preset_draft: Default::default(),
             stamp_thumbs: Default::default(),
+            standard_stamps_open: None,
             optimize_draft: OptimizeDraft::default(),
             optimize_run: None,
             progress_notice: None,
@@ -2320,6 +2324,7 @@ impl PdfCraftApp {
         // Set apart: one more key inside the macro above passes serde_json's recursion limit.
         v["redact_prefs"] = self.redact_defaults.to_json();
         v["stamp_presets"] = stamps_ui::encode_presets(&self.stamp_presets);
+        v["standard_stamps_open"] = serde_json::json!(self.standard_stamps_open);
         // Set outside json! above, which is at serde_json's macro recursion limit.
         v["hide_empty_highlight_hover"] = serde_json::Value::Bool(self.comment_prefs.hide_empty_highlight_hover);
         v.to_string()
@@ -2475,6 +2480,9 @@ impl PdfCraftApp {
         }
         self.custom_stamps = stamps_ui::decode(&v["custom_stamps"]);
         self.stamp_presets = stamps_ui::decode_presets(&v["stamp_presets"]);
+        if let Some(open) = v["standard_stamps_open"].as_bool() {
+            self.standard_stamps_open = Some(open);
+        }
         self.custom_actions = actions_ui::decode(&v["actions"]);
         if let Some(on) = v["javascript"].as_bool() {
             self.session.set_javascript(on);

@@ -402,3 +402,33 @@ fn the_italian_palette_names_graphic_signatures_and_presets() {
         h.render().unwrap().save(format!("{dir}/stamps-it.png")).unwrap();
     }
 }
+
+/// The user's library comes first in the palette. PdfCraft's standard stamps are shown while
+/// the library is empty, fold away once it has an entry, and unfold on request; the choice is
+/// kept with the settings.
+#[test]
+fn the_library_comes_first_and_the_standard_stamps_fold_away() {
+    let mut h = harness("en");
+    assert!(h.state_mut().execute("comment.stamp"));
+    h.run_steps(2);
+    assert!(h.query_all_by_label("APPROVED").count() >= 1, "an empty library leaves the standard stamps open");
+    h.state_mut().custom_stamps.push(CustomStamp::slot(StampKind::Signature, "", "Ada"));
+    h.run_steps(2);
+    assert_eq!(h.query_all_by_label("APPROVED").count(), 0, "folded away once the library has an entry");
+    let ada = h.get_by_label("Ada").rect();
+    let header = h.get_by_label("STANDARD STAMPS").rect();
+    assert!(ada.top() < header.top(), "the library sits above the standard stamps: {ada:?} {header:?}");
+    h.get_by_label("STANDARD STAMPS").click();
+    h.run_steps(2);
+    assert!(h.query_all_by_label("APPROVED").count() >= 1, "unfolded on request");
+    assert!(h.get_by_label("Ada").rect().top() < h.get_all_by_label("APPROVED").next().unwrap().rect().top());
+    assert_eq!(h.state().standard_stamps_open, Some(true));
+    let saved = h.state().persist();
+    let mut again = PdfCraftApp::new();
+    again.restore(&saved);
+    assert_eq!(again.standard_stamps_open, Some(true));
+    h.get_by_label("STANDARD STAMPS").click();
+    h.run_steps(2);
+    assert_eq!(h.query_all_by_label("APPROVED").count(), 0);
+    assert_eq!(h.state().standard_stamps_open, Some(false));
+}

@@ -307,6 +307,34 @@ fn stamp_palette(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
     use pdfcraft_engine::{StampGroup, StampKind};
     ui.label(egui::RichText::new(tl!("Choose a stamp, then click on the page to place it.")).small().color(t.text_faint));
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+        // The user's own library first: graphic signatures, custom stamps and presets.
+        crate::stamps_ui::palette_section(app, ui, t);
+        // PdfCraft's standard stamps, folded away once the library has something in it (the
+        // choice is remembered either way).
+        let open = app.standard_stamps_open.unwrap_or(app.custom_stamps.is_empty() && app.stamp_presets.is_empty());
+        ui.add_space(10.0);
+        let clicked = ui
+            .horizontal(|ui| {
+                let chevron = if open { "chevron-down" } else { "chevron-right" };
+                let toggle = crate::icons::button(ui, chevron, 18.0, false, if open { tl!("Collapse") } else { tl!("Expand") }).clicked();
+                let label = ui.add(
+                    egui::Label::new(
+                        egui::RichText::new(crate::i18n::upper_label("Standard stamps"))
+                            .font(theme::semibold(10.5))
+                            .color(t.text_faint)
+                            .extra_letter_spacing(0.6),
+                    )
+                    .sense(Sense::click()),
+                );
+                toggle || label.clicked()
+            })
+            .inner;
+        if clicked {
+            app.standard_stamps_open = Some(!open);
+        }
+        if !open {
+            return;
+        }
         for (group, title) in [
             (StampGroup::Dynamic, tl!("Dynamic")),
             (StampGroup::SignHere, tl!("Sign Here")),
@@ -367,7 +395,6 @@ fn stamp_palette(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
                 }
             }
         }
-        crate::stamps_ui::palette_section(app, ui, t);
     });
 }
 
