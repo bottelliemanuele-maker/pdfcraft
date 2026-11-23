@@ -1,6 +1,6 @@
 # Developing PdfCraft
 
-Working instructions for agents and contributors are in `AGENTS.md` and `CLAUDE.md`. This page
+Working instructions for agents and contributors are in `AGENTS.md` and this guide. This page
 collects what the desktop app reads from its environment and where it writes its diagnostics.
 
 ## Low-disk Cargo profile
@@ -120,3 +120,15 @@ driver's shader compilation, and explicit `PDFCRAFT_RENDERER=wgpu` still disable
 | `PDFCRAFT_BUILD_LABEL` | Build time: a label for a local or patched build (letters, digits, inner dots), shown after the version in `--version`, About and the log (`0.7.1 (titlebar)`). `packaging/linux/package.sh` also puts it in the file names and the .rpm/.deb release (`1.titlebar`), which upgrades over the release of the same version |
 | `CRAFT_FONTS_DIR` | Build time: a [craft-fonts](https://github.com/storytold/craft-fonts) checkout to embed (Japanese fonts) |
 | `PDFCRAFT_SYSTEM_FONTS` | `0` stops the desktop app from using an installed font for characters its embedded fonts lack (`cargo xtask screenshots` sets it) |
+
+## Contributor workflow
+
+Read `AGENTS.md`, the relevant crate README and the current task before editing. The local-only `plan/` directory, when present, supplies architecture and milestone context; it is not required to understand the committed rules.
+
+Preserve the PDF object graph and unknown data. Prefer incremental saves unless a full rewrite is required; record any repair instead of silently dropping data. Nothing below L7 depends on egui/winit/eframe/rfd; `cos`, `filters`, `crypt` and `arlington` stay standalone. Use synthetic fixtures for observations and regression tests. Never read or copy Acrobat internals, ship its assets, or copy GPL/AGPL implementations; oracle programs run only as external processes.
+
+Scope compilation and tests to changed crates with bounded parallelism (`-j 2`) and a timeout. Run formatting, clippy with `-D warnings`, and the relevant tests; check layers/assets when affected. Full workspace validation belongs to CI unless a specific issue justifies it locally. For documentation-only changes, check the diff, referenced paths and configuration examples.
+
+Use a task branch and a pull request into `main`; never push directly to `main`. Follow `.github/pull_request_template.md` and merge only with green CI. Preserve contributor attribution and asset provenance.
+
+The engine can be driven without the UI through `pdfcraft-cli run --script steps.json --root DIR`; `pdfcraft-cli tools` lists tools. `pdfcraft-cli mcp` is opt-in. For UI changes inspect the rendered result through the control channel or a headless screenshot. Distinguish tested functionality from parity claims.
