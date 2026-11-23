@@ -91,12 +91,20 @@ The release packages ship `pdfcraft-cli` alongside the desktop app, so no build 
 | Linux (deb, rpm) | `/usr/bin/pdfcraft-cli` |
 | macOS | the separate `pdfcraft-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
 
-```sh
-# Windows, default install folder
-claude mcp add pdfcraft -- "C:\Program Files\PdfCraft\pdfcraft-cli.exe" mcp --root <dir>
-# Linux, or macOS with the CLI unzipped onto PATH
-claude mcp add pdfcraft -- pdfcraft-cli mcp --root <dir>
+Use your client's MCP configuration, pointing `command` at the installed CLI:
+
+```json
+{
+  "mcpServers": {
+    "pdfcraft": {
+      "command": "pdfcraft-cli",
+      "args": ["mcp", "--root", "/absolute/path/to/documents"]
+    }
+  }
+}
 ```
+
+On Windows use the full CLI path from the table (escape backslashes in JSON). On macOS use the unzipped CLI's absolute path if it is not on `PATH`.
 
 ## Adding a tool
 
